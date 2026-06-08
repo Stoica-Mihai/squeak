@@ -85,3 +85,8 @@ class Device:
         ok = (len(resp) >= 4 and resp[1] == SHORT_REPLY_MARK
               and resp[2] == STATUS_OK and resp[3] == cmd)
         return ok, resp
+
+    def long_raw(self, *payload, timeout_ms=1000):
+        """WRITE arbitrary payload on long channel (0xB3), return short reply."""
+        self._write(LONG_OUT, LONG_LEN, list(payload))
+        return self._read(SHORT_IN, SHORT_LEN, timeout_ms)

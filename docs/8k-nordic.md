@@ -133,14 +133,16 @@ suggests). One `0x54` frame uploads the macro AND binds it to the button id
 capture (Ldown/Lup/Rdown/Lup) and a keyboard capture cross-checked against the
 Launcher's export JSON (LShift, KC_1, Ctrl+A, …) decode exactly.
 
-**Long macros — chunked via cmd `0x71`.** When the `0x54` frame exceeds one
-report (~12 events), the Launcher splits it: `0x71 <seq> <len> <chunk>` frames,
-each acked `0x72 00`; the reassembled chunks equal the full `0x54` frame. Not yet
-implemented (`keycron/macro.py` raises for over-length macros); the chunk `seq`
-byte semantics need a full-frame capture to finalize.
+**Long macros — chunked via cmd `0x71` (VERIFIED LIVE).** When the `0x54` frame
+exceeds one report (~12 events), split it into 59-byte slices, each sent as
+`[0x71, seq, slice_len, <slice>]` on `0xB3`, acked `0xB6 0x72 00`. The reassembled
+slices equal the full `0x54` frame. **`seq = 1 + (bytes_sent_before // 16)`** —
+the device validates seq against its own running byte count (floor, not ceil;
+ceil is silently rejected). The macro commits when the declared length is
+received; readback length confirms.
 
-Implemented in `keycron/macro.py` (mouse + keyboard + modifier, single frame).
-CLI: `keycron macro <id> click left right` / `keycron macro <id> text "hi"`.
+Implemented in `keycron/macro.py` (mouse + keyboard + modifier, single + chunked).
+CLI: `keycron macro <id> click left right` / `keycron macro <id> text "hello"`.
 
 ## Gestures / tap-holds / combos — NAPE group (`0xA7`=167)
 

@@ -55,10 +55,10 @@ python3 -m keycron reset --categories dpi sensor --yes
 Every write re-reads the device and confirms the value took. All commands above
 are verified live on the 8k_nordic device.
 
-Macros support mouse / keyboard / modifier events but only **short** ones (one
-HID report, ~12 events) — long macros use a `0x71` chunking scheme that isn't
-implemented yet. Also documented-but-not-implemented (in `docs/`): scroll-wheel
-**encoder** and gestures/tap-holds/combos (NAPE `0xA7` group).
+Macros support mouse / keyboard / modifier events, short and long (long macros
+are chunked via the `0x71` scheme automatically). Documented-but-not-implemented
+(in `docs/`): scroll-wheel **encoder** and gestures/tap-holds/combos (NAPE
+`0xA7` group).
 
 ## Protocol
 

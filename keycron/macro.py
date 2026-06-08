@@ -1,9 +1,15 @@
 """Macro upload for 8k_nordic (decoded from usbmon + Launcher export JSON).
 
-SET (short macro, fits one frame): long channel cmd 0x54 =
-[id, 0, len, 0, loopCount, loopType, 0x20, 0, 0, n_events, 0, <events>];
-ack 0xB6 e4 00 54. len = 6 + 4*n_events (from byte 6). Setting also binds the
-macro to the button (its type becomes Macro=4). Invalid button -> status 5.
+The macro frame is cmd 0x54 =
+[0x54, id, 0, len, 0, loopCount, loopType, 0x20, 0, 0, n_events, 0, <events>];
+len = 6 + 4*n_events (from byte 6). Setting also binds the macro to the button
+(its type becomes Macro=4). Invalid button -> status 5.
+
+If the frame fits one 0xB3 report it is sent directly (ack 0xB6 e4 00 54).
+Otherwise it is chunked: each 59-byte slice of the full 0x54 frame is sent as
+[0x71, seq, slice_len, <slice>] on 0xB3, acked 0xB6 0x72 00, where
+seq = 1 + (bytes_sent_before // 16) — the device validates this against its own
+running byte count. Verified live (readback length matches).
 
 Event = [flag, code, delay_lo, delay_hi]. flag = press_bit(0x80) | class:
   class 1 = keyboard key   (code = HID usage)        press 0x81 / release 0x01
@@ -18,7 +24,10 @@ implemented here; set_macro raises if the frame exceeds one report.
 """
 
 CMD_SET_MACRO = 0x54
-MAX_FRAME = 63  # one 0xB3 report payload
+CMD_CHUNK = 0x71        # chunked upload wrapper
+CHUNK_ACK = 0x72       # chunk reply marker on 0xB6
+MAX_FRAME = 63         # one 0xB3 report payload
+CHUNK_PAYLOAD = 59     # bytes of 0x54 stream per chunk (3-byte 0x71 header + 59 = 62)
 
 CLASS_KEY, CLASS_MOD, CLASS_MOUSE = 1, 2, 8
 PRESS = 0x80
@@ -75,18 +84,24 @@ def set_macro(dev, button_id, events, loop_count=1, loop_type=LOOP_STOP_ON_RELEA
     """Upload `events` (flat byte list) to `button_id`. Re-reads to confirm."""
     n_events = len(events) // 4
     length = 6 + 4 * n_events
-    header = [button_id, 0x00, length, 0x00, loop_count, loop_type,
-              0x20, 0x00, 0x00, n_events, 0x00]
-    if 1 + len(header) + len(events) > MAX_FRAME:
-        raise NotImplementedError(
-            f"macro too long for one frame ({n_events} events); "
-            "0x71 chunking not implemented yet")
-    ok, resp = dev.long_set(CMD_SET_MACRO, *header, *events)
-    if not ok:
-        raise RuntimeError(f"macro set rejected (status {resp[2] if resp else '?'}): {resp}")
+    frame = [CMD_SET_MACRO, button_id, 0x00, length, 0x00, loop_count,
+             loop_type, 0x20, 0x00, 0x00, n_events, 0x00] + list(events)
+
+    if len(frame) <= MAX_FRAME:
+        ok, resp = dev.long_set(frame[0], *frame[1:])
+        if not ok:
+            raise RuntimeError(f"macro rejected (status {resp[2] if resp else '?'}): {resp}")
+    else:
+        # Chunk the 0x54 frame; seq = 1 + floor(bytes_sent/16) (device's own count).
+        for off in range(0, len(frame), CHUNK_PAYLOAD):
+            chunk = frame[off:off + CHUNK_PAYLOAD]
+            seq = 1 + off // 16
+            resp = dev.long_raw(CMD_CHUNK, seq, len(chunk), *chunk)
+            if not (len(resp) >= 3 and resp[1] == CHUNK_ACK and resp[2] == 0):
+                raise RuntimeError(f"macro chunk @{off} rejected: {resp}")
 
     from keycron.buttons import get_button
     after = get_button(dev, button_id)
-    if after["type"] != "Macro":
-        raise RuntimeError(f"macro set unconfirmed, button is {after}")
+    if after["type"] != "Macro" or after["data"] != length:
+        raise RuntimeError(f"macro set unconfirmed (want len {length}): {after}")
     return after
