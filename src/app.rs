@@ -298,7 +298,7 @@ impl App {
                 self.set_status("refreshing…".into(), StatusLevel::Info);
             }
             Action::ToggleFocus => self.toggle_focus(),
-            Action::Back => self.focus = Focus::Sidebar,
+            Action::Back => self.back(),
             Action::Vertical(d) => match self.focus {
                 Focus::Sidebar => self.section(d),
                 Focus::Content => self.move_cursor(d),
@@ -504,6 +504,18 @@ impl App {
                 self.set_status("applying…".into(), StatusLevel::Info);
                 true
             }
+        }
+    }
+
+    /// Esc: the Macros screen (reached via `m`) returns to the Buttons table;
+    /// elsewhere it just drops focus back to the sidebar.
+    fn back(&mut self) {
+        if self.screen() == Screen::Macros && self.focus == Focus::Content {
+            self.screen_idx = Screen::ALL.iter().position(|s| *s == Screen::Buttons).unwrap();
+            self.focus = Focus::Content;
+            self.request_buttons();
+        } else {
+            self.focus = Focus::Sidebar;
         }
     }
 
