@@ -56,19 +56,25 @@ fn status_lines(app: &App) -> Vec<Line<'static>> {
         Conn::Up { name, .. } => ("●", th.ok, short_name(name)),
         Conn::Down(_) => ("○", th.err, "offline".to_string()),
     };
-    let mut top = vec![
+    let mut lines = vec![Line::from(vec![
         Span::styled(format!(" {dot} "), Style::default().fg(dot_color)),
         Span::styled(label, Style::default().fg(th.dim)),
-    ];
-    if let Some(s) = &app.settings {
-        let charge = if s.battery.charging { " ⚡" } else { "" };
-        top.push(Span::raw("  "));
-        top.push(Span::styled(
-            format!("{}%{charge}", s.battery.percent.min(100)),
-            Style::default().fg(th.ok),
-        ));
-    }
-    vec![Line::from(top)]
+    ])];
+    let battery = match &app.settings {
+        Some(s) => {
+            let charge = if s.battery.charging { " ⚡" } else { "" };
+            Line::from(vec![
+                Span::raw("   "),
+                Span::styled(
+                    format!("{}%{charge}", s.battery.percent.min(100)),
+                    Style::default().fg(th.ok).add_modifier(Modifier::BOLD),
+                ),
+            ])
+        }
+        None => Line::from(""),
+    };
+    lines.push(battery);
+    lines
 }
 
 /// Trim a long product string to fit the narrow sidebar.

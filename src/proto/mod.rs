@@ -18,15 +18,6 @@ pub enum Variant {
     Unsupported,
 }
 
-impl Variant {
-    pub fn label(self) -> &'static str {
-        match self {
-            Variant::EightKNordic => "8k_nordic",
-            Variant::Unsupported => "unsupported",
-        }
-    }
-}
-
 /// Runtime detection. The M6 / Ultra-Link 8K exposes config on usage 0xFFC1 and
 /// is the only hardware-verified variant; everything else is Unsupported.
 pub fn detect(usage_page: u16) -> Variant {

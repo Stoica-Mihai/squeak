@@ -29,7 +29,7 @@ pub enum Cmd {
 }
 
 pub enum Update {
-    Connected { name: String, variant: Variant, firmware: String },
+    Connected { name: String, variant: Variant, firmware: String, transport: &'static str },
     Settings(Box<Settings>),
     Buttons(Vec<ButtonInfo>),
     /// Result of a write, after read-back. Drives the ✓/✗ status line.
@@ -181,10 +181,12 @@ fn ensure_connected(tx: &Sender<Update>) -> Result<Device, bool> {
             let name = if di.name.is_empty() {
                 format!("Keychron {:04x}:{:04x}", di.vid, di.pid)
             } else {
-                di.name
+                dedupe_words(&di.name)
             };
+            // 0xD0xx PIDs are the 2.4 GHz dongle transport; 0x06xx are wired.
+            let transport = if di.pid >= 0xD000 { "2.4 GHz" } else { "wired" };
             let firmware = info::read_version(&mut d).unwrap_or_else(|_| "?".into());
-            if send(tx, Update::Connected { name, variant, firmware }) {
+            if send(tx, Update::Connected { name, variant, firmware, transport }) {
                 return Err(true);
             }
             Ok(d)
@@ -237,6 +239,17 @@ fn report_button_write(
             send(tx, Update::Error(format!("button read failed: {e}")))
         }
     }
+}
+
+/// Collapse consecutive duplicate words (device HID_NAME repeats "Keychron").
+fn dedupe_words(s: &str) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    for w in s.split_whitespace() {
+        if out.last() != Some(&w) {
+            out.push(w);
+        }
+    }
+    out.join(" ")
 }
 
 fn connect() -> Result<(DeviceInfo, Device), String> {

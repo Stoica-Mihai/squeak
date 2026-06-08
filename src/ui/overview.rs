@@ -1,15 +1,18 @@
-//! Overview screen: battery gauge + a live summary of the device snapshot.
+//! Overview screen: a compact live summary — header (device · transport ·
+//! firmware), battery bar, and grouped DPI / Polling / Sensor / Timing rows.
 
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Gauge, Paragraph, Wrap},
+    widgets::{Paragraph, Wrap},
 };
 
 use crate::app::{App, Conn};
 use crate::proto::polling;
+
+const LABEL_W: usize = 9;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();
@@ -18,65 +21,90 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         return;
     };
 
-    let rows = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(0)])
-        .split(area);
+    let mut lines = Vec::new();
 
+    // Header: name · transport · firmware
+    if let Conn::Up { name, transport, firmware, .. } = &app.conn {
+        lines.push(Line::from(vec![
+            Span::styled(name.clone(), Style::default().fg(th.fg).add_modifier(Modifier::BOLD)),
+            Span::styled("  ·  ", Style::default().fg(th.dim)),
+            Span::styled(transport.to_string(), Style::default().fg(th.fg)),
+            Span::styled("  ·  firmware ", Style::default().fg(th.dim)),
+            Span::styled(firmware.clone(), Style::default().fg(th.accent)),
+        ]));
+    }
+    lines.push(Line::from(""));
+
+    // Battery: green bar + right-side label.
     let pct = s.battery.percent.min(100);
-    let charge = if s.battery.charging { " ⚡charging" } else { "" };
-    let gauge = Gauge::default()
-        .gauge_style(Style::default().fg(th.accent).bg(th.sel_bg))
-        .ratio(pct as f64 / 100.0)
-        .label(format!("battery {pct}%{charge}"));
-    f.render_widget(gauge, rows[0]);
+    let bar_w = (area.width as usize).saturating_sub(LABEL_W + 12).clamp(8, 28);
+    let filled = pct as usize * bar_w / 100;
+    let charge = if s.battery.charging { " ⚡" } else { "" };
+    lines.push(Line::from(vec![
+        label(th, "Battery"),
+        Span::styled("█".repeat(filled), Style::default().fg(th.ok)),
+        Span::styled("░".repeat(bar_w - filled), Style::default().fg(th.border)),
+        Span::styled(
+            format!(" {pct}%{charge}"),
+            Style::default().fg(th.ok).add_modifier(Modifier::BOLD),
+        ),
+    ]));
 
+    // DPI presets, active one highlighted.
+    let active = s.dpi.active_levels[0] as usize;
+    let mut dpi_spans = vec![label(th, "DPI")];
+    for (i, dpi) in s.dpi.presets.iter().enumerate() {
+        let style = if i == active {
+            Style::default().fg(th.accent).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(th.dim)
+        };
+        dpi_spans.push(Span::styled(format!("{dpi} "), style));
+    }
+    lines.push(Line::from(dpi_spans));
+
+    // Polling
     let hz = polling::hz_from_code(s.polling.levels[0])
         .map(|h| format!("{h} Hz"))
         .unwrap_or_else(|| format!("code {}", s.polling.levels[0]));
+    lines.push(Line::from(vec![
+        label(th, "Polling"),
+        Span::styled(hz, Style::default().fg(th.accent).add_modifier(Modifier::BOLD)),
+    ]));
 
-    let mut lines = vec![Line::from("")];
-    if let Conn::Up { name, variant, firmware } = &app.conn {
-        lines.push(kv(app, "Device", format!("{name} ({})", variant.label())));
-        lines.push(kv(app, "Firmware", firmware.clone()));
-    }
-    lines.extend([
-        kv(app, "Profile", format!("{} of {}", s.profile.current, s.profile.count)),
-        kv(app, "DPI presets", format!("{:?}", s.dpi.presets)),
-        kv(app, "DPI active", format!("levels {:?}", s.dpi.active_levels)),
-        kv(app, "Polling", hz),
-        kv(app, "LOD", s.sensor.lod.to_string()),
-        kv(app, "Scroll dir", invert(s.sensor.scroll_dir)),
-        kv(app, "Motion sync", on_off(s.sensor.motion_sync)),
-        kv(app, "Angle snap", if s.sensor.angle == 0 { "off".into() } else { format!("{}°", s.sensor.angle) }),
-        kv(app, "Sampling", if s.sensor.fps20k == 1 { "Competitive (≥20K)".into() } else { "Standard".into() }),
-        kv(app, "Debounce", format!("{} ms", s.debounce.value)),
-        kv(app, "Sleep", format!("{} s", s.sleep_s)),
-    ]);
+    // Sensor (grouped)
+    let scroll = if s.sensor.scroll_dir == 1 { "inverted" } else { "normal" };
+    let angle = if s.sensor.angle == 0 { "off".to_string() } else { format!("{}°", s.sensor.angle) };
+    lines.push(Line::from(vec![
+        label(th, "Sensor"),
+        Span::styled(
+            format!("LOD {} · {scroll} scroll · angle {angle}", s.sensor.lod),
+            Style::default().fg(th.fg),
+        ),
+    ]));
+
+    // Timing (grouped)
+    lines.push(Line::from(vec![
+        label(th, "Timing"),
+        Span::styled(
+            format!("debounce {} ms · sleep {} s", s.debounce.value, s.sleep_s),
+            Style::default().fg(th.fg),
+        ),
+    ]));
+
     if let Some(t) = app.last_update {
         lines.push(Line::from(""));
         lines.push(Line::styled(
-            format!("  refreshed {}s ago", t.elapsed().as_secs()),
+            format!("last refreshed {}s ago", t.elapsed().as_secs()),
             Style::default().fg(th.dim),
         ));
     }
-    f.render_widget(Paragraph::new(lines), rows[1]);
+
+    f.render_widget(Paragraph::new(lines), area);
 }
 
-fn kv(app: &App, key: &str, value: String) -> Line<'static> {
-    let th = app.theme();
-    Line::from(vec![
-        Span::styled(format!("  {key:<14}"), Style::default().fg(th.dim)),
-        Span::styled(value, Style::default().fg(th.fg)),
-    ])
-}
-
-fn on_off(v: u8) -> String {
-    if v == 1 { "on".into() } else { "off".into() }
-}
-
-fn invert(v: u8) -> String {
-    if v == 1 { "inverted".into() } else { "normal".into() }
+fn label(th: crate::theme::Theme, text: &str) -> Span<'static> {
+    Span::styled(format!("{text:<LABEL_W$}"), Style::default().fg(th.dim))
 }
 
 fn render_no_data(f: &mut Frame, area: Rect, app: &App) {

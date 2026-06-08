@@ -168,7 +168,7 @@ pub enum Modal {
 /// Connection state to the device.
 pub enum Conn {
     Connecting,
-    Up { name: String, variant: Variant, firmware: String },
+    Up { name: String, firmware: String, transport: &'static str },
     Down(String),
 }
 
@@ -659,14 +659,14 @@ impl App {
     /// Apply a device update from the worker thread.
     pub fn apply(&mut self, update: Update) {
         match update {
-            Update::Connected { name, variant, firmware } => {
+            Update::Connected { name, variant, firmware, transport } => {
                 let warn = if variant == Variant::EightKNordic {
                     ""
                 } else {
                     " (unsupported variant — reads may be wrong)"
                 };
                 self.set_status(format!("connected: {name}{warn}"), StatusLevel::Ok);
-                self.conn = Conn::Up { name, variant, firmware };
+                self.conn = Conn::Up { name, firmware, transport };
             }
             Update::Settings(s) => {
                 // Reseed editors from the device unless the user has unsaved edits.
