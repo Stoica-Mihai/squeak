@@ -1,15 +1,43 @@
-# keycron-cli
+# squeak
 
-Configure a Keychron M6 mouse (Ultra-Link 8K dongle) from the Linux CLI —
-DPI and polling rate — replicating the web Launcher over raw HID.
+A terminal UI to configure Keychron mice on Linux — DPI, polling rate, sensor,
+buttons, macros, and profiles — over raw HID, replicating the web Launcher.
+Every write is read back and verified.
 
-## Setup
-
-Grant hidraw access (the Launcher needs this too):
+First-class target: **Keychron M6 8K / Ultra-Link 8K dongle** (`8k_nordic`,
+VID `0x3434`), verified live on firmware 0.1.6.
 
 ```
-# /etc/udev/rules.d/99-keychron-m6.rules
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", ATTRS{idProduct}=="d028", MODE="0660", GROUP="input"
+╭ squeak ────────╮╭ Overview ──────────────────────────────────────────╮
+│▌ Overview      ││Keychron Ultra-Link 8K  ·  2.4 GHz  ·  firmware 0.1.6│
+│  DPI           ││                                                     │
+│  Polling       ││Battery  ████████████████████████ 100%              │
+│  Sensor        ││DPI      400 800 1600 4250 6000                      │
+│  Buttons       ││Polling  125 Hz                                      │
+│  Profiles      ││Sensor   LOD 1 · normal scroll · angle off           │
+│                ││Timing   debounce 4 ms · sleep 7 min                 │
+│ ● Ultra-Link 8K││last refreshed 2s ago                                │
+│   100%         ││                                                     │
+╰────────────────╯╰─────────────────────────────────────────────────────╯
+```
+
+## Build
+
+Rust 2024 (toolchain ≥ 1.85). No C dependencies — pure-std `/dev/hidraw`.
+
+```bash
+cargo build --release
+./target/release/squeak
+```
+
+## Permissions
+
+hidraw needs group access (the browser Launcher needs this too). Ship a udev
+rule, then replug the dongle:
+
+```
+# /etc/udev/rules.d/99-keychron.rules
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"
 ```
 
 ```bash
@@ -17,54 +45,71 @@ sudo udevadm control --reload-rules && sudo udevadm trigger --action=add
 # replug the dongle
 ```
 
-Requires the `hid` Python package (cython-hidapi).
+(If a config node exists but `open` fails with EACCES, squeak shows the fix.)
 
 ## Usage
 
 ```bash
-python3 -m keycron info                 # all settings (add --json for raw)
-python3 -m keycron battery              # battery percent
-
-python3 -m keycron dpi                  # read DPI presets
-python3 -m keycron dpi 1600             # set active profile's DPI (50..5000)
-python3 -m keycron dpi 3200 --index 2   # set a specific preset slot
-
-python3 -m keycron polling              # read polling rate
-python3 -m keycron polling 1000         # 125/500/1000/2000/4000/8000 Hz
-
-python3 -m keycron sensor               # read sensor params
-python3 -m keycron sensor --scroll-dir 1 --lod 2 --motion 1   # set sensor
-python3 -m keycron angle 15             # angle snap degrees (0 = off)
-python3 -m keycron debounce 8           # debounce ms
-python3 -m keycron sleep 60             # idle sleep seconds
-python3 -m keycron profile 5 6 7        # select DPI profiles
-
-python3 -m keycron buttons              # list button assignments
-python3 -m keycron button 11            # read one button
-python3 -m keycron button 11 mouse right        # assign a mouse action
-python3 -m keycron button 11 key 0x04 --mods ctrl   # assign Ctrl+A
-python3 -m keycron button 11 disable
-
-python3 -m keycron macro 11 click left right   # mouse-click macro onto a button
-python3 -m keycron macro 11 text "hi"          # keyboard macro (types text)
-
-python3 -m keycron reset --yes                       # factory reset (all)
-python3 -m keycron reset --categories dpi sensor --yes
+squeak              # launch the TUI
+squeak identify     # map physical buttons to slot ids (see below)
 ```
 
-Every write re-reads the device and confirms the value took. All commands above
-are verified live on the 8k_nordic device.
+### Keys
 
-Macros support mouse / keyboard / modifier events, short and long (long macros
-are chunked via the `0x71` scheme automatically). Side-scroll encoders are
-remappable through the `button` command. Middle scroll is a fixed wheel, and
-gestures/tap-holds/combos are not supported by this device (its capability flags
-don't advertise them) — so the CLI covers the M6's full configurable feature set.
+Focus model: the **sidebar** (section list) and the **content** pane each take
+focus.
 
-## Protocol
+| Key | Action |
+|---|---|
+| `Tab` | move focus between sidebar and content |
+| `↑ ↓` | sidebar: change section · content: move row/selection |
+| `→` / `Enter` | sidebar: enter content · content: apply / open picker |
+| `Esc` | back to the sidebar |
+| `r` | refresh from device · `t` theme · `?` help · `X` factory reset · `q` quit |
 
-Per-device protocol maps are in [`docs/`](docs/) — start with
-[`docs/README.md`](docs/README.md). Our device is
-[`docs/8k-nordic.md`](docs/8k-nordic.md) (verified live). `FINDINGS.md` is the
-original reverse-engineering log; `capture.py` is the usbmon decoder used to
-bootstrap it before the Launcher JS was mapped.
+Per screen (content focus):
+
+- **DPI** — `↑↓` pick a preset, `Enter` to type an exact value (50–26000).
+- **Polling** — `↑↓` pick a rate, `Enter` apply (`●` = current).
+- **Sensor** — `↑↓` row, `←→` change, `Space` toggle; `Enter` shows a diff and
+  applies. Edited-but-unapplied rows are marked `✎ unsaved`.
+- **Buttons** — `↑↓` a button; `Enter` opens the action picker
+  (Mouse / Media / Disable / Default), `d` default, `x` disable, `m` record a
+  macro (modal).
+- **Profiles** — `↑↓` pick, `Enter` activate (reloads the whole config).
+
+### `squeak identify`
+
+Physical-button identity isn't reported by the device. This command sets each
+button to a macro that types its own id; press each physical button in a text
+editor to read the mapping, then `Enter` restores everything. (The M6 map is
+already built in: 0 Left · 1 Middle · 2 Right · 3 Forward · 4 Backward · 5/6
+Side ↑/↓.)
+
+## Features
+
+DPI presets · polling rate · sensor (LOD, scroll dir, motion sync, angle snap,
+ripple, sampling mode) · debounce · sleep · button remap (mouse / media /
+keyboard via the reference CLI) · macros (click sequences + text, auto-chunked
+over `0x71`) · profile switching · factory reset. Themes: Mocha, Gruvbox, Nord,
+Tokyo Night (`t`).
+
+Gestures / tap-holds / combos are not supported by the M6 (its capability flags
+don't advertise them).
+
+## Protocol & reference implementation
+
+The HID protocol was reverse-engineered from the Keychron Launcher (WebHID) and
+usbmon captures. Per-device maps are in [`docs/`](docs/) —
+[`docs/8k-nordic.md`](docs/8k-nordic.md) is our verified device.
+[`FINDINGS.md`](FINDINGS.md) is the RE log; [`capture.py`](capture.py) is the
+usbmon decoder (`RAW=1` logs every report id).
+
+[`keycron/`](keycron/) is the verified Python reference implementation + CLI
+that squeak ports. [`PLAN.md`](PLAN.md) is the implementation plan.
+
+## Status
+
+8k_nordic is verified live (DPI, polling, sensor, buttons, macros, profile
+switch — all read-back-confirmed on the Ultra-Link 8K dongle). Other Keychron
+variants (1k / 4k / 8k) are documented from the Launcher JS but unverified.
