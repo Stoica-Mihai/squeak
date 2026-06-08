@@ -205,8 +205,8 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
 
             let cols = Layout::horizontal([Constraint::Length(11), Constraint::Min(0)]).split(inner);
 
-            // Type column
-            let mut types = vec![Line::styled("Type", Style::default().fg(th.dim))];
+            // Type column (header indented to match the row marker prefix)
+            let mut types = vec![Line::styled("  Type", Style::default().fg(th.dim))];
             for (i, (name, _)) in PICK_TYPES.iter().enumerate() {
                 let on = p.col == PickerCol::Type && i == p.type_idx;
                 types.push(row_line(name, on, th));
@@ -215,7 +215,7 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
 
             // Value column: actions for the selected type (Mouse/Media).
             let kind = PICK_TYPES[p.type_idx].1;
-            let mut values = vec![Line::styled("Action", Style::default().fg(th.dim))];
+            let mut values = vec![Line::styled("  Action", Style::default().fg(th.dim))];
             if kind.value_count() > 0 {
                 for i in 0..kind.value_count() {
                     let on = p.col == PickerCol::Value && i == p.value_idx;
