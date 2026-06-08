@@ -7,6 +7,7 @@ pub mod dpi;
 pub mod info;
 pub mod macros;
 pub mod polling;
+pub mod profile;
 pub mod sensor;
 pub mod system;
 

@@ -140,6 +140,12 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
                     spans.push(key("↵ "));
                     spans.push(lbl("upload  "));
                 }
+                Screen::Profiles => {
+                    spans.push(key(" ↑↓ "));
+                    spans.push(lbl("profile  "));
+                    spans.push(key("↵ "));
+                    spans.push(lbl("activate  "));
+                }
                 _ => {}
             }
             spans.push(key("⇥ "));

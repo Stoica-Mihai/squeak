@@ -20,10 +20,15 @@ import os
 # Set CAPTURE_ALL=1 to log every report (use when hunting an unknown channel,
 # e.g. button remap / macros). Default: just the known mouse command reports.
 ALL = os.environ.get("CAPTURE_ALL") == "1"
+# RAW=1: log absolutely everything, no noise filter (needed to catch frames on
+# report id 0/0x01/0x02, e.g. the NAPE profile-switch frame). Hold the mouse
+# still so movement reports don't flood the log.
+RAW = os.environ.get("RAW") == "1"
+ALL = ALL or RAW         # RAW logs every report id
 OUT_IDS = {0xB3, 0xB5}   # host -> device command reports
 IN_IDS = {0xB4, 0xB6}    # device -> host reply reports
 # Live mouse HID input reports (movement/buttons) — noise; skip in ALL mode.
-NOISE_IDS = {0x01, 0x02}
+NOISE_IDS = set() if RAW else {0x01, 0x02}
 
 
 def parse_data(tokens):

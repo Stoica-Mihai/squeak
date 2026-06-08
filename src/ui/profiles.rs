@@ -1,12 +1,12 @@
-//! Profiles screen (read-only): the 5 DPI profile slots with the active one
-//! marked. Activation uses an unverified 0x45 frame, so it's not wired yet.
+//! Profiles screen: the device's hardware profiles. ↑↓ pick, ↵ activate.
+//! `●` marks the profile currently active on the device.
 
 use ratatui::{
     Frame,
-    layout::Rect,
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
-    text::{Line, Span},
-    widgets::Paragraph,
+    text::Line,
+    widgets::{List, ListItem, ListState, Paragraph},
 };
 
 use crate::app::App;
@@ -20,33 +20,43 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         );
         return;
     };
-    let active = s.dpi.active_levels[0] as usize;
+    let current = s.profile.current as usize;
+    let count = app.profile_count();
 
-    let mut lines = vec![
-        Line::from(vec![
-            Span::styled("  current  ", Style::default().fg(th.dim)),
-            Span::styled(
-                format!("profile {} of {}", s.profile.current, s.profile.count),
-                Style::default().fg(th.fg).add_modifier(Modifier::BOLD),
-            ),
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(2), Constraint::Min(0), Constraint::Length(1)])
+        .split(area);
+
+    f.render_widget(
+        Paragraph::new(vec![
+            Line::styled("  ↵ activates a profile (full button/DPI/sensor set)", Style::default().fg(th.dim)),
+            Line::from(""),
         ]),
-        Line::from(""),
-    ];
-    for (i, dpi) in s.dpi.presets.iter().enumerate() {
-        let is_active = i == active;
-        let mark = if is_active { "●" } else { " " };
-        let style = if is_active {
-            Style::default().fg(th.ok).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(th.fg)
-        };
-        let tail = if is_active { "  active" } else { "" };
-        lines.push(Line::styled(format!("  {mark} slot {}   {dpi:>5} dpi{tail}", i + 1), style));
-    }
-    lines.push(Line::from(""));
-    lines.push(Line::styled(
-        "  read-only — activation not yet wired (0x45 frame unverified)",
-        Style::default().fg(th.dim),
-    ));
-    f.render_widget(Paragraph::new(lines), area);
+        rows[0],
+    );
+
+    let items: Vec<ListItem> = (0..count)
+        .map(|i| {
+            let mark = if i == current { "●" } else { "○" };
+            let active = if i == current { "   (active)" } else { "" };
+            ListItem::new(Line::raw(format!("{mark} Profile {}{active}", i + 1)))
+        })
+        .collect();
+
+    let list = List::new(items)
+        .style(Style::default().fg(th.fg))
+        .highlight_style(Style::default().bg(th.sel_bg).add_modifier(Modifier::BOLD))
+        .highlight_symbol("▸ ");
+    let mut state = ListState::default();
+    state.select(Some(app.profile_cursor.min(count.saturating_sub(1))));
+    f.render_stateful_widget(list, rows[1], &mut state);
+
+    f.render_widget(
+        Paragraph::new(Line::styled(
+            "  switching reloads all settings from the new profile",
+            Style::default().fg(th.dim),
+        )),
+        rows[2],
+    );
 }

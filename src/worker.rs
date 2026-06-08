@@ -9,7 +9,7 @@ use crate::hid::{Device, DeviceInfo, find_config};
 use crate::proto::block::{self, Settings};
 use crate::proto::buttons::{self, ButtonInfo};
 use crate::proto::sensor::SensorFields;
-use crate::proto::{self, Variant, dpi, info, macros, polling, sensor, system};
+use crate::proto::{self, Variant, dpi, info, macros, polling, profile, sensor, system};
 
 pub enum Cmd {
     ReadAll,
@@ -25,6 +25,7 @@ pub enum Cmd {
     SetButtonDisable(u8),
     SetButtonDefault(u8),
     SetMacro { id: u8, events: Vec<u8> },
+    SetProfile(u8),
     FactoryReset,
     Shutdown,
 }
@@ -167,6 +168,11 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
                 let result = macros::set_macro(dev.as_mut().unwrap(), id, &events)
                     .map(|b| format!("macro → button {id} ✓ verified (len {})", b.data));
                 report_button_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetProfile(index) => {
+                let result = profile::set_profile(dev.as_mut().unwrap(), index)
+                    .map(|i| format!("profile → {} ✓ verified", i + 1));
+                report_write(&update_tx, &mut dev, result)
             }
         };
         if stop {

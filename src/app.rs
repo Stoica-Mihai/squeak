@@ -63,7 +63,12 @@ impl Screen {
     pub fn interactive(self) -> bool {
         matches!(
             self,
-            Screen::Dpi | Screen::Polling | Screen::Sensor | Screen::Buttons | Screen::Macros
+            Screen::Dpi
+                | Screen::Polling
+                | Screen::Sensor
+                | Screen::Buttons
+                | Screen::Macros
+                | Screen::Profiles
         )
     }
 }
@@ -234,6 +239,9 @@ pub struct App {
     pub buttons: Vec<ButtonInfo>,
     pub button_cursor: usize,
 
+    // Profiles
+    pub profile_cursor: usize,
+
     // Macros (bound to macro_target button)
     pub macro_target: Option<u8>,
     pub macro_palette: usize,
@@ -268,6 +276,7 @@ impl App {
             sensor_dirty: false,
             buttons: Vec::new(),
             button_cursor: 0,
+            profile_cursor: 0,
             macro_target: None,
             macro_palette: 0,
             macro_seq: Vec::new(),
@@ -579,8 +588,19 @@ impl App {
             Screen::Macros => {
                 self.macro_palette = clamp_idx(self.macro_palette, delta, MOUSE_PALETTE.len());
             }
+            Screen::Profiles => {
+                self.profile_cursor = clamp_idx(self.profile_cursor, delta, self.profile_count());
+            }
             _ => {}
         }
+    }
+
+    /// Number of device profiles (defaults to 5 before the first read).
+    pub fn profile_count(&self) -> usize {
+        self.settings
+            .as_ref()
+            .map(|s| (s.profile.count.max(1)) as usize)
+            .unwrap_or(5)
     }
 
     fn adjust(&mut self, delta: i32) {
@@ -648,6 +668,10 @@ impl App {
             Screen::Sensor => self.apply_sensor_row(),
             Screen::Buttons => self.open_button_picker(),
             Screen::Macros => self.upload_click_macro(),
+            Screen::Profiles => {
+                let _ = self.cmd_tx.send(Cmd::SetProfile(self.profile_cursor as u8));
+                self.set_status("switching profile…".into(), StatusLevel::Info);
+            }
             _ => {}
         }
     }
