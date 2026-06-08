@@ -531,8 +531,8 @@ impl App {
             Modal::MacroText => self.modal = Some(Modal::MacroText),
             Modal::DpiInput => self.modal = Some(Modal::DpiInput),
             Modal::ConfirmSensor => match action {
-                Action::Confirm | Action::Enter => self.apply_sensor_row(),
-                Action::Cancel | Action::Back => {}
+                Action::Enter => self.apply_sensor_row(),
+                Action::Back => {}
                 _ => self.modal = Some(Modal::ConfirmSensor),
             },
             Modal::Help => match action {
