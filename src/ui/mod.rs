@@ -275,6 +275,33 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
             ];
             f.render_widget(Paragraph::new(lines), inner);
         }
+        Modal::ConfirmSensor => {
+            let diff = app.sensor_diff();
+            let h = (diff.len() as u16) + 6;
+            let area = centered(f.area(), 52, h);
+            f.render_widget(Clear, area);
+            let block = modal_block(" Apply sensor changes? ".into(), th.accent, th);
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let mut lines = vec![Line::from("")];
+            for (label, old, new) in &diff {
+                lines.push(Line::from(vec![
+                    Span::styled(format!("  {label:<18}"), Style::default().fg(th.dim)),
+                    Span::styled(old.clone(), Style::default().fg(th.fg)),
+                    Span::styled(" → ", Style::default().fg(th.dim)),
+                    Span::styled(new.clone(), Style::default().fg(th.ok).add_modifier(Modifier::BOLD)),
+                ]));
+            }
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("  y", Style::default().fg(th.ok).add_modifier(Modifier::BOLD)),
+                Span::styled(" apply     ", Style::default().fg(th.dim)),
+                Span::styled("n/esc", Style::default().fg(th.accent).add_modifier(Modifier::BOLD)),
+                Span::styled(" cancel", Style::default().fg(th.dim)),
+            ]));
+            f.render_widget(Paragraph::new(lines), inner);
+        }
         Modal::Help => {
             let area = centered(f.area(), 50, 16);
             f.render_widget(Clear, area);

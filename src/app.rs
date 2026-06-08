@@ -191,6 +191,8 @@ pub enum Modal {
     MacroText,
     /// Numeric entry for the selected DPI preset.
     DpiInput,
+    /// Diff confirmation before applying pending sensor edits.
+    ConfirmSensor,
     Help,
 }
 
@@ -298,6 +300,43 @@ impl App {
 
     pub fn request_buttons(&self) {
         let _ = self.cmd_tx.send(Cmd::ReadButtons);
+    }
+
+    /// Pending sensor edits as (label, old, new) display strings.
+    pub fn sensor_diff(&self) -> Vec<(&'static str, String, String)> {
+        let Some(s) = &self.settings else { return Vec::new() };
+        let e = &self.sensor_edit;
+        let d = &s.sensor;
+        let mut out = Vec::new();
+        if e.lod != d.lod {
+            out.push(("Lift-off distance", lod_mm(d.lod).into(), lod_mm(e.lod).into()));
+        }
+        if e.scroll_dir != d.scroll_dir {
+            let f = |v: u8| if v == 1 { "inverted".to_string() } else { "normal".to_string() };
+            out.push(("Scroll direction", f(d.scroll_dir), f(e.scroll_dir)));
+        }
+        if e.motion != d.motion_sync {
+            out.push(("Motion sync", on_off(d.motion_sync), on_off(e.motion)));
+        }
+        if e.wave != d.wave {
+            out.push(("Ripple control", on_off(d.wave), on_off(e.wave)));
+        }
+        if e.fps20k != d.fps20k {
+            let f = |v: u8| if v == 1 { "Competitive".to_string() } else { "Standard".to_string() };
+            out.push(("Sampling mode", f(d.fps20k), f(e.fps20k)));
+        }
+        let dev_on = d.angle != 0;
+        let dev_deg = d.angle.unsigned_abs().min(90) as u8;
+        if e.angle_on != dev_on || (e.angle_on && e.angle_deg != dev_deg) {
+            out.push(("Angle snapping", angle_str(dev_on, dev_deg), angle_str(e.angle_on, e.angle_deg)));
+        }
+        if e.debounce != s.debounce.value {
+            out.push(("Debounce", format!("{} ms", s.debounce.value), format!("{} ms", e.debounce)));
+        }
+        if e.sleep != s.sleep_s {
+            out.push(("Sleep", format!("{} s", s.sleep_s), format!("{} s", e.sleep)));
+        }
+        out
     }
 
     pub fn update(&mut self, action: Action) {
@@ -491,6 +530,11 @@ impl App {
             // Text/number capture is routed via input_* from the event loop.
             Modal::MacroText => self.modal = Some(Modal::MacroText),
             Modal::DpiInput => self.modal = Some(Modal::DpiInput),
+            Modal::ConfirmSensor => match action {
+                Action::Confirm | Action::Enter => self.apply_sensor_row(),
+                Action::Cancel | Action::Back => {}
+                _ => self.modal = Some(Modal::ConfirmSensor),
+            },
             Modal::Help => match action {
                 Action::Cancel | Action::Back | Action::Help | Action::Enter => {}
                 _ => self.modal = Some(Modal::Help),
@@ -675,7 +719,11 @@ impl App {
                 });
                 self.set_status("applying polling rate…".into(), StatusLevel::Info);
             }
-            Screen::Sensor => self.apply_sensor_row(),
+            Screen::Sensor => {
+                if !self.sensor_diff().is_empty() {
+                    self.modal = Some(Modal::ConfirmSensor);
+                }
+            }
             Screen::Buttons => self.open_button_picker(),
             Screen::Macros => self.upload_click_macro(),
             Screen::Profiles => {
@@ -807,6 +855,23 @@ fn clamp_idx(cur: usize, delta: i32, len: usize) -> usize {
 /// Step a value by `dir * step`, clamped to `min..=max`.
 fn step_clamp(cur: u8, dir: i32, min: u8, max: u8, step: u8) -> u8 {
     (cur as i32 + dir.signum() * step as i32).clamp(min as i32, max as i32) as u8
+}
+
+fn lod_mm(v: u8) -> &'static str {
+    match v {
+        0 => "0.7 mm",
+        1 => "1.0 mm",
+        2 => "2.0 mm",
+        _ => "?",
+    }
+}
+
+fn on_off(v: u8) -> String {
+    if v == 1 { "on".into() } else { "off".into() }
+}
+
+fn angle_str(on: bool, deg: u8) -> String {
+    if on { format!("on {deg}°") } else { "off".into() }
 }
 
 /// Seed the Sensor editor from a device snapshot.
