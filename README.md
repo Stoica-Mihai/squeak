@@ -51,7 +51,6 @@ sudo udevadm control --reload-rules && sudo udevadm trigger --action=add
 
 ```bash
 squeak              # launch the TUI
-squeak identify     # map physical buttons to slot ids (see below)
 ```
 
 ### Keys
@@ -77,14 +76,6 @@ Per screen (content focus):
   (Mouse / Media / Disable / Default), `d` default, `x` disable, `m` record a
   macro (modal).
 - **Profiles** — `↑↓` pick, `Enter` activate (reloads the whole config).
-
-### `squeak identify`
-
-Physical-button identity isn't reported by the device. This command sets each
-button to a macro that types its own id; press each physical button in a text
-editor to read the mapping, then `Enter` restores everything. (The M6 map is
-already built in: 0 Left · 1 Middle · 2 Right · 3 Forward · 4 Backward · 5/6
-Side ↑/↓.)
 
 ## Features
 

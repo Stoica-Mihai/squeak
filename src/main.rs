@@ -4,7 +4,6 @@
 mod app;
 mod event;
 mod hid;
-mod identify;
 mod proto;
 mod theme;
 mod ui;
@@ -25,9 +24,6 @@ const TICK: Duration = Duration::from_millis(100);
 const AUTO_REFRESH: Duration = Duration::from_secs(5);
 
 fn main() -> Result<()> {
-    if std::env::args().any(|a| a == "identify") {
-        return identify::run();
-    }
     let mut terminal = ratatui::init();
     let result = run(&mut terminal);
     ratatui::restore();
