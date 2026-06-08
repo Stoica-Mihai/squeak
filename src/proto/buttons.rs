@@ -121,7 +121,13 @@ pub fn is_present(b: &ButtonInfo) -> bool {
 /// empirically confirmed (assign a macro, press the physical button, observe).
 pub fn friendly_name(id: u8) -> Option<&'static str> {
     match id {
-        1 => Some("Middle"), // confirmed: macro fired on physical middle click
+        0 => Some("Left"),   // confirmed live
+        1 => Some("Middle"), // confirmed live
+        2 => Some("Right"),  // confirmed live
+        3 => Some("Forward"),  // confirmed: front thumb button (left side)
+        4 => Some("Backward"), // confirmed live
+        5 => Some("Side ↑"),   // confirmed: side-scroll up (default Vol +)
+        6 => Some("Side ↓"),   // confirmed: side-scroll down (default Vol -)
         _ => None,
     }
 }
