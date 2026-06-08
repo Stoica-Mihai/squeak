@@ -144,6 +144,20 @@ received; readback length confirms.
 Implemented in `keycron/macro.py` (mouse + keyboard + modifier, single + chunked).
 CLI: `keycron macro <id> click left right` / `keycron macro <id> text "hello"`.
 
+## Encoders (scroll wheels)
+
+No separate encoder protocol — handled by the button mechanism:
+
+- **Side scroll** = button ids (observed ids 5/6/10/11). Remap with the normal
+  button command, e.g. mouse actions `upScroll`/`downScroll`/`leftScroll`/
+  `rightScroll` (enum `_`) or any other type. Default side-scroll emits Consumer
+  Control codes (report `0x0C`: `0xEA`/`0xE9`), stored as Media-type assignments.
+- **Middle scroll** = fixed wheel. The Launcher exposes no remap for it and sends
+  nothing on the config channel — not user-remappable.
+
+Note: button GET (`0x62`) on the side-scroll slots can read volatile values while
+the wheel is being turned (live scroll bleeds into the slot read).
+
 ## Gestures / tap-holds / combos — NAPE group (`0xA7`=167)
 
 Gestures, tap-holds, combos still go through the NAPE group. The Launcher targets
