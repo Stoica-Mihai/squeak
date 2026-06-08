@@ -56,9 +56,10 @@ fn row_line(app: &App, row: SensorRow, selected: bool, th: Theme) -> Line<'stati
     let mut spans = vec![label];
     match row {
         SensorRow::Lod => {
-            spans.push(val(format!("{} mm", e.lod)));
+            let mm = lod_mm(e.lod);
+            spans.push(val(mm.to_string()));
             if selected {
-                spans.push(adj(e.lod.to_string()));
+                spans.push(adj(mm.to_string()));
             }
         }
         SensorRow::ScrollDir => {
@@ -89,6 +90,16 @@ fn row_line(app: &App, row: SensorRow, selected: bool, th: Theme) -> Line<'stati
         }
     }
     Line::from(spans)
+}
+
+/// LOD raw index (0/1/2) -> the Launcher's millimetre label.
+fn lod_mm(v: u8) -> &'static str {
+    match v {
+        0 => "0.7 mm",
+        1 => "1.0 mm",
+        2 => "2.0 mm",
+        _ => "? mm",
+    }
 }
 
 fn footer(app: &App) -> Line<'static> {
