@@ -99,6 +99,8 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
                     spans.push(lbl("row  "));
                     spans.push(key("←→ "));
                     spans.push(lbl("±50 (⇧±500)  "));
+                    spans.push(key("i "));
+                    spans.push(lbl("type  "));
                     spans.push(key("↵ "));
                     spans.push(lbl("apply  "));
                 }
@@ -256,6 +258,24 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
                 ]),
                 Line::from(""),
                 Line::styled("  ↵ upload · esc cancel", Style::default().fg(th.dim)),
+            ];
+            f.render_widget(Paragraph::new(lines), inner);
+        }
+        Modal::DpiInput => {
+            let area = centered(f.area(), 40, 7);
+            f.render_widget(Clear, area);
+            let block = modal_block(format!(" DPI — preset {} ", app.dpi_cursor + 1), th.accent, th);
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+            let lines = vec![
+                Line::styled("  type a DPI value (50–26000):", Style::default().fg(th.dim)),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled(format!("{}_", app.text_buf), Style::default().fg(th.fg)),
+                ]),
+                Line::from(""),
+                Line::styled("  ↵ apply · esc cancel", Style::default().fg(th.dim)),
             ];
             f.render_widget(Paragraph::new(lines), inner);
         }

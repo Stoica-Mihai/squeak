@@ -189,6 +189,8 @@ pub enum Modal {
     ConfirmReset,
     ButtonPicker(Picker),
     MacroText,
+    /// Numeric entry for the selected DPI preset.
+    DpiInput,
     Help,
 }
 
@@ -361,12 +363,17 @@ impl App {
             Action::RecordMacro => self.start_macro_for_selected_button(),
             Action::Add => self.macro_add(),
             Action::Remove => self.macro_remove(),
-            Action::TextInput => {
-                if self.screen() == Screen::Macros && self.macro_target.is_some() {
+            Action::TextInput => match self.screen() {
+                Screen::Macros if self.macro_target.is_some() => {
                     self.text_buf.clear();
                     self.modal = Some(Modal::MacroText);
                 }
-            }
+                Screen::Dpi => {
+                    self.text_buf.clear();
+                    self.modal = Some(Modal::DpiInput);
+                }
+                _ => {}
+            },
             Action::Confirm | Action::Cancel | Action::None => {}
         }
     }
@@ -395,14 +402,20 @@ impl App {
         }
     }
 
-    // Text-input modal (macro text) — char capture routed from the event loop.
+    // Text/number input modals — char capture routed from the event loop.
     pub fn capturing_text(&self) -> bool {
-        matches!(self.modal, Some(Modal::MacroText))
+        matches!(self.modal, Some(Modal::MacroText | Modal::DpiInput))
     }
 
     pub fn input_char(&mut self, c: char) {
-        if !c.is_control() {
-            self.text_buf.push(c);
+        match self.modal {
+            Some(Modal::DpiInput) => {
+                if c.is_ascii_digit() && self.text_buf.len() < 5 {
+                    self.text_buf.push(c);
+                }
+            }
+            Some(Modal::MacroText) if !c.is_control() => self.text_buf.push(c),
+            _ => {}
         }
     }
 
@@ -415,7 +428,14 @@ impl App {
     }
 
     pub fn input_commit(&mut self) {
-        self.modal = None;
+        match self.modal.take() {
+            Some(Modal::MacroText) => self.commit_macro_text(),
+            Some(Modal::DpiInput) => self.commit_dpi_input(),
+            _ => {}
+        }
+    }
+
+    fn commit_macro_text(&mut self) {
         let Some(id) = self.macro_target else { return };
         match macros::text_events(&self.text_buf) {
             Ok(events) if !events.is_empty() => {
@@ -424,6 +444,19 @@ impl App {
             }
             Ok(_) => self.set_status("empty macro — nothing sent".into(), StatusLevel::Info),
             Err(e) => self.set_status(e.to_string(), StatusLevel::Err),
+        }
+    }
+
+    fn commit_dpi_input(&mut self) {
+        match self.text_buf.parse::<u16>() {
+            Ok(v) => {
+                let v = v.clamp(DPI_MIN, DPI_MAX);
+                self.dpi_edit[self.dpi_cursor] = v;
+                self.dpi_dirty = true;
+                let _ = self.cmd_tx.send(Cmd::SetDpi { index: self.dpi_cursor, value: v });
+                self.set_status(format!("DPI preset {} → {v}…", self.dpi_cursor + 1), StatusLevel::Info);
+            }
+            Err(_) => self.set_status("invalid number".into(), StatusLevel::Err),
         }
     }
 
@@ -469,8 +502,9 @@ impl App {
                 _ => self.modal = Some(Modal::ConfirmReset), // keep open on stray keys
             },
             Modal::ButtonPicker(p) => self.update_picker(p, action),
-            // Text capture is routed via input_* from the event loop, not here.
+            // Text/number capture is routed via input_* from the event loop.
             Modal::MacroText => self.modal = Some(Modal::MacroText),
+            Modal::DpiInput => self.modal = Some(Modal::DpiInput),
             Modal::Help => match action {
                 Action::Cancel | Action::Back | Action::Help | Action::Enter => {}
                 _ => self.modal = Some(Modal::Help),
