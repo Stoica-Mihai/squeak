@@ -30,8 +30,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
     let items: Vec<ListItem> = SensorRow::ALL
         .iter()
-        .enumerate()
-        .map(|(i, row)| ListItem::new(row_line(app, *row, i == app.sensor_cursor, th)))
+        .map(|row| ListItem::new(row_line(app, *row, th)))
         .collect();
 
     let list = List::new(items)
@@ -44,7 +43,28 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(Paragraph::new(footer(app)), rows[2]);
 }
 
-fn row_line(app: &App, row: SensorRow, selected: bool, th: Theme) -> Line<'static> {
+/// Whether the row's edited value differs from the device's current value.
+fn row_changed(app: &App, row: SensorRow) -> bool {
+    let Some(s) = &app.settings else { return false };
+    let e = &app.sensor_edit;
+    let se = &s.sensor;
+    match row {
+        SensorRow::Lod => e.lod != se.lod,
+        SensorRow::ScrollDir => e.scroll_dir != se.scroll_dir,
+        SensorRow::Motion => e.motion != se.motion_sync,
+        SensorRow::Ripple => e.wave != se.wave,
+        SensorRow::Sampling => e.fps20k != se.fps20k,
+        SensorRow::Angle => {
+            let dev_deg = se.angle.unsigned_abs().min(90) as u8;
+            e.angle_on != (se.angle != 0) || (e.angle_on && e.angle_deg != dev_deg)
+        }
+        SensorRow::Debounce => e.debounce != s.debounce.value,
+        SensorRow::Sleep => e.sleep != s.sleep_s,
+    }
+}
+
+fn row_line(app: &App, row: SensorRow, th: Theme) -> Line<'static> {
+    let selected = SensorRow::ALL[app.sensor_cursor] == row;
     let e = &app.sensor_edit;
     let label = Span::styled(format!("{:<18}", row.label()), Style::default().fg(th.dim));
     let val = |s: String| Span::styled(s, Style::default().fg(th.fg));
@@ -89,6 +109,12 @@ fn row_line(app: &App, row: SensorRow, selected: bool, th: Theme) -> Line<'stati
             }
         }
     }
+    if row_changed(app, row) {
+        spans.push(Span::styled(
+            "  ✎ unsaved",
+            Style::default().fg(th.err).add_modifier(Modifier::BOLD),
+        ));
+    }
     Line::from(spans)
 }
 
@@ -104,6 +130,12 @@ fn lod_mm(v: u8) -> &'static str {
 
 fn footer(app: &App) -> Line<'static> {
     let th = app.theme();
+    if SensorRow::ALL.iter().any(|r| row_changed(app, *r)) {
+        return Line::styled(
+            "  ✎ unsaved changes — ↵ to apply",
+            Style::default().fg(th.err).add_modifier(Modifier::BOLD),
+        );
+    }
     match app.status.level {
         StatusLevel::Ok => Line::styled(format!("  {}", app.status.text), Style::default().fg(th.ok)),
         StatusLevel::Err => Line::styled(format!("  {}", app.status.text), Style::default().fg(th.err)),

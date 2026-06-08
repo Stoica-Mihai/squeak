@@ -700,28 +700,51 @@ impl App {
         self.set_status("uploading macro…".into(), StatusLevel::Info);
     }
 
+    /// Apply every sensor field that differs from the device (one ↵ commits all
+    /// pending edits), then let the post-write refresh reseed cleanly.
     fn apply_sensor_row(&mut self) {
+        let Some(s) = self.settings.clone() else { return };
         let e = self.sensor_edit;
-        let cmd = match SensorRow::ALL[self.sensor_cursor] {
-            SensorRow::Lod => Cmd::SetSensor(SensorFields { lod: Some(e.lod), ..Default::default() }),
-            SensorRow::ScrollDir => {
-                Cmd::SetSensor(SensorFields { scroll_dir: Some(e.scroll_dir), ..Default::default() })
-            }
-            SensorRow::Motion => {
-                Cmd::SetSensor(SensorFields { motion: Some(e.motion), ..Default::default() })
-            }
-            SensorRow::Ripple => {
-                Cmd::SetSensor(SensorFields { wave: Some(e.wave), ..Default::default() })
-            }
-            SensorRow::Sampling => {
-                Cmd::SetSensor(SensorFields { fps20k: Some(e.fps20k), ..Default::default() })
-            }
-            SensorRow::Angle => Cmd::SetAngle { degrees: e.angle_deg, enable: e.angle_on },
-            SensorRow::Debounce => Cmd::SetDebounce(e.debounce),
-            SensorRow::Sleep => Cmd::SetSleep(e.sleep),
-        };
-        let _ = self.cmd_tx.send(cmd);
-        self.set_status("applying…".into(), StatusLevel::Info);
+        let dev = &s.sensor;
+
+        // Combine all changed sensor-block fields into one cmd 0x42 write.
+        let mut f = SensorFields::default();
+        let mut any = false;
+        if e.lod != dev.lod {
+            f.lod = Some(e.lod);
+            any = true;
+        }
+        if e.scroll_dir != dev.scroll_dir {
+            f.scroll_dir = Some(e.scroll_dir);
+            any = true;
+        }
+        if e.motion != dev.motion_sync {
+            f.motion = Some(e.motion);
+            any = true;
+        }
+        if e.wave != dev.wave {
+            f.wave = Some(e.wave);
+            any = true;
+        }
+        if e.fps20k != dev.fps20k {
+            f.fps20k = Some(e.fps20k);
+            any = true;
+        }
+        if any {
+            let _ = self.cmd_tx.send(Cmd::SetSensor(f));
+        }
+
+        let dev_deg = dev.angle.unsigned_abs().min(90) as u8;
+        if e.angle_on != (dev.angle != 0) || (e.angle_on && e.angle_deg != dev_deg) {
+            let _ = self.cmd_tx.send(Cmd::SetAngle { degrees: e.angle_deg, enable: e.angle_on });
+        }
+        if e.debounce != s.debounce.value {
+            let _ = self.cmd_tx.send(Cmd::SetDebounce(e.debounce));
+        }
+        if e.sleep != s.sleep_s {
+            let _ = self.cmd_tx.send(Cmd::SetSleep(e.sleep));
+        }
+        self.set_status("applying sensor…".into(), StatusLevel::Info);
     }
 
     /// Apply a device update from the worker thread.
