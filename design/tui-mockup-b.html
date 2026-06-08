@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>keycron TUI — variant B (final)</title>
+<style>
+  :root{
+    --base:#1e1e2e; --crust:#11111b; --text:#cdd6f4; --sub:#a6adc8;
+    --over:#6c7086; --surf:#313244;
+    --blue:#89b4fa; --green:#a6e3a1; --red:#f38ba8; --yellow:#f9e2af;
+    --mauve:#cba6f7; --teal:#94e2d5; --peach:#fab387; --sky:#89dceb;
+  }
+  body{background:#0b0b12;color:var(--text);font-family:"JetBrains Mono","Fira Code",ui-monospace,monospace;
+       margin:0;padding:40px;line-height:1.35;}
+  h1{font-weight:600;font-size:20px;margin:0 0 4px}
+  .lead{color:var(--sub);margin:0 0 30px;font-size:13px}
+  .screen{margin:0 0 40px}
+  .stitle{color:var(--mauve);font-size:13px;margin:0 0 10px;font-weight:600}
+  .term{background:var(--base);border-radius:10px;overflow:hidden;
+        box-shadow:0 12px 40px rgba(0,0,0,.55);max-width:880px;border:1px solid #2a2a3a}
+  .bar{background:var(--crust);padding:8px 12px;display:flex;align-items:center;gap:7px}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f56}.y{background:#ffbd2e}.g{background:#27c93f}
+  .bt{color:var(--over);font-size:12px;margin-left:8px}
+  pre{margin:0;padding:16px 18px;font-size:13px;white-space:pre;overflow-x:auto}
+  .b{color:var(--blue)}.gr{color:var(--green)}.rd{color:var(--red)}.yl{color:var(--yellow)}
+  .mv{color:var(--mauve)}.tl{color:var(--teal)}.pe{color:var(--peach)}.sk{color:var(--sky)}
+  .dim{color:var(--over)}.sub{color:var(--sub)}.bold{font-weight:700}
+  .sel{background:var(--blue);color:var(--crust);font-weight:700}
+  .row{background:var(--surf);color:#fff;font-weight:600}
+  .key{color:var(--crust);background:var(--blue);padding:0 2px;border-radius:2px;font-weight:700}
+  .on{color:var(--green)}.off{color:var(--over)}
+</style>
+</head>
+<body>
+<h1>keycron — variant B · sidebar (final design)</h1>
+<p class="lead">Persistent left menu, detail pane on the right, context footer. Same view across sections; selected menu item highlighted. ratatui: <code>Tabs</code>→list, <code>List</code>, <code>Gauge</code>, <code>Table</code>, line widgets.</p>
+
+<!-- OVERVIEW -->
+<div class="screen">
+  <div class="stitle">› Overview — landing screen, live status</div>
+  <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron</span></div>
+<pre>
+<span class="dim">╭─ menu ───────╮╭─ Overview ───────────────────────────────────────────╮</span>
+<span class="dim">│</span> <span class="sel"> Overview   </span> <span class="dim">││</span>  <span class="sub">Keychron M6 8K</span>  <span class="dim">·</span> <span class="sub">wired</span>  <span class="dim">·</span> <span class="sub">firmware</span> <span class="tl">0.1.6</span>          <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">DPI</span>          <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Polling</span>      <span class="dim">││</span>  <span class="sub">Battery</span>   <span class="gr">██████████████████</span><span class="dim">░░</span> <span class="gr bold">99%</span> <span class="yl">⚡</span>          <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Sensor</span>       <span class="dim">││</span>  <span class="sub">DPI</span>       <span class="dim">400 800 1600 4250</span> <span class="pe bold">5000</span>               <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Buttons</span>      <span class="dim">││</span>  <span class="sub">Polling</span>   <span class="b bold">125 Hz</span>                                  <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Macros</span>       <span class="dim">││</span>  <span class="sub">Sensor</span>    <span class="text">LOD 1 · normal scroll · angle off</span>        <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Profiles</span>     <span class="dim">││</span>  <span class="sub">Timing</span>    <span class="text">debounce 4 ms · sleep 10 s</span>              <span class="dim">│</span>
+<span class="dim">│</span>              <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">●</span> <span class="sub">connected</span>  <span class="dim">││</span>  <span class="dim">last refreshed 2s ago</span>                              <span class="dim">│</span>
+<span class="dim">╰──────────────╯╰──────────────────────────────────────────────────────╯</span>
+ <span class="key">↑↓</span> <span class="dim">nav</span>   <span class="key">↵</span> <span class="dim">open</span>   <span class="key">r</span> <span class="dim">refresh</span>   <span class="key">t</span> <span class="dim">theme</span>   <span class="key">?</span> <span class="dim">help</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+<!-- DPI -->
+<div class="screen">
+  <div class="stitle">› DPI — editable presets with live sliders</div>
+  <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron</span></div>
+<pre>
+<span class="dim">╭─ menu ───────╮╭─ DPI ────────────────────────────────────────────────╮</span>
+<span class="dim">│</span> <span class="dim">Overview</span>     <span class="dim">││</span>  <span class="sub">←→ adjust ±50 · ⇧←→ ±500 · a = set active</span>             <span class="dim">│</span>
+<span class="dim">│</span> <span class="sel"> DPI        </span> <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Polling</span>      <span class="dim">││</span>   <span class="dim">1</span>  <span class="text">  400</span>  <span class="gr">█</span><span class="dim">───────────────────────────</span>           <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Sensor</span>       <span class="dim">││</span>   <span class="dim">2</span>  <span class="text">  800</span>  <span class="gr">███</span><span class="dim">─────────────────────────</span>           <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Buttons</span>      <span class="dim">││</span>   <span class="dim">3</span>  <span class="text"> 1600</span>  <span class="gr">██████</span><span class="dim">──────────────────────</span>           <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Macros</span>       <span class="dim">││</span>   <span class="dim">4</span>  <span class="text"> 4250</span>  <span class="gr">█████████████████</span><span class="dim">───────────</span>           <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Profiles</span>     <span class="dim">││</span>  <span class="row"> ▸5   5000  ████████████████████████████  active </span> <span class="dim">│</span>
+<span class="dim">│</span>              <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">●</span> <span class="sub">M6 8K</span>      <span class="dim">││</span>  <span class="sub">range</span> <span class="dim">50–5000 · step 50 · 5 presets</span>                 <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">99%</span> <span class="yl">⚡</span>       <span class="dim">││</span>  <span class="gr">✓ written &amp; verified</span>                               <span class="dim">│</span>
+<span class="dim">╰──────────────╯╰──────────────────────────────────────────────────────╯</span>
+ <span class="key">↑↓</span> <span class="dim">preset</span>   <span class="key">←→</span> <span class="dim">value</span>   <span class="key">a</span> <span class="dim">active</span>   <span class="key">↵</span> <span class="dim">apply</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+<!-- POLLING + SENSOR side note -->
+<div class="screen">
+  <div class="stitle">› Polling — single-select list</div>
+  <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron</span></div>
+<pre>
+<span class="dim">╭─ menu ───────╮╭─ Polling rate ───────────────────────────────────────╮</span>
+<span class="dim">│</span> <span class="dim">Overview</span>     <span class="dim">││</span>  <span class="sub">↵ to apply (writes &amp; re-reads to confirm)</span>             <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">DPI</span>          <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="sel"> Polling    </span> <span class="dim">││</span>     <span class="row"> ● 125 Hz                                  </span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Sensor</span>       <span class="dim">││</span>       <span class="dim">○ 500 Hz</span>                                       <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Buttons</span>      <span class="dim">││</span>       <span class="dim">○ 1000 Hz</span>                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Macros</span>       <span class="dim">││</span>       <span class="dim">○ 2000 Hz</span>                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Profiles</span>     <span class="dim">││</span>       <span class="dim">○ 4000 Hz</span>                                      <span class="dim">│</span>
+<span class="dim">│</span>              <span class="dim">││</span>       <span class="dim">○ 8000 Hz</span>                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">●</span> <span class="sub">M6 8K</span>      <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">99%</span> <span class="yl">⚡</span>       <span class="dim">││</span>  <span class="sub">Levels: 6 · Office → Gaming</span>                        <span class="dim">│</span>
+<span class="dim">╰──────────────╯╰──────────────────────────────────────────────────────╯</span>
+ <span class="key">↑↓</span> <span class="dim">choose</span>   <span class="key">↵</span> <span class="dim">apply</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+<!-- SENSOR -->
+<div class="screen">
+  <div class="stitle">› Sensor — toggles &amp; values</div>
+  <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron</span></div>
+<pre>
+<span class="dim">╭─ menu ───────╮╭─ Sensor ─────────────────────────────────────────────╮</span>
+<span class="dim">│</span> <span class="dim">Overview</span>     <span class="dim">││</span>  <span class="row"> ▸ Lift-off distance        1 mm   ◄ 1 ►          </span> <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">DPI</span>          <span class="dim">││</span>    <span class="sub">Scroll direction</span>        <span class="text">normal</span> <span class="dim">[ normal | inverted ]</span> <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Polling</span>      <span class="dim">││</span>    <span class="sub">Motion sync</span>             <span class="on">● on</span>                       <span class="dim">│</span>
+<span class="dim">│</span> <span class="sel"> Sensor     </span> <span class="dim">││</span>    <span class="sub">Angle snapping</span>          <span class="off">○ off</span>   <span class="dim">0°</span>                 <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Buttons</span>      <span class="dim">││</span>    <span class="sub">Ripple control</span>          <span class="on">● on</span>                       <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Macros</span>       <span class="dim">││</span>    <span class="sub">Sampling mode</span>           <span class="text">Standard</span> <span class="dim">[ Std | Competitive ]</span> <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Profiles</span>     <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">●</span> <span class="sub">M6 8K</span>      <span class="dim">││</span>  <span class="sub">Debounce</span> <span class="text">4 ms</span>   <span class="sub">Sleep</span> <span class="text">10 s</span>                          <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">99%</span> <span class="yl">⚡</span>       <span class="dim">││</span>  <span class="gr">✓ applied</span>                                          <span class="dim">│</span>
+<span class="dim">╰──────────────╯╰──────────────────────────────────────────────────────╯</span>
+ <span class="key">↑↓</span> <span class="dim">row</span>   <span class="key">←→</span> <span class="dim">change</span>   <span class="key">space</span> <span class="dim">toggle</span>   <span class="key">↵</span> <span class="dim">apply</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+<!-- BUTTONS -->
+<div class="screen">
+  <div class="stitle">› Buttons — table, ↵ opens an action picker</div>
+  <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron</span></div>
+<pre>
+<span class="dim">╭─ menu ───────╮╭─ Buttons ────────────────────────────────────────────╮</span>
+<span class="dim">│</span> <span class="dim">Overview</span>     <span class="dim">││</span>  <span class="sub">id  button            assignment</span>                     <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">DPI</span>          <span class="dim">││</span>  <span class="dim">─────────────────────────────────────────</span>           <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Polling</span>      <span class="dim">││</span>  <span class="dim">L   Left</span>              <span class="text">default (left)</span>               <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Sensor</span>       <span class="dim">││</span>  <span class="dim">R   Right</span>             <span class="text">default (right)</span>              <span class="dim">│</span>
+<span class="dim">│</span> <span class="sel"> Buttons    </span> <span class="dim">││</span>  <span class="dim">M   Middle</span>            <span class="text">default (middle)</span>             <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Macros</span>       <span class="dim">││</span>  <span class="row"> 11  Side scroll ↑     left click                 </span> <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Profiles</span>     <span class="dim">││</span>  <span class="dim">Fwd Forward</span>           <span class="text">default</span>   <span class="dim">Bck</span> <span class="text">default</span>        <span class="dim">│</span>
+<span class="dim">│</span>              <span class="dim">││</span>  <span class="dim">SideW Volume +/−</span>      <span class="mv">macro · L,L,R,L</span>              <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">●</span> <span class="sub">M6 8K</span>      <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">99%</span> <span class="yl">⚡</span>       <span class="dim">││</span>  <span class="dim">↵ remap · d default · x disable · m record macro</span>    <span class="dim">│</span>
+<span class="dim">╰──────────────╯╰──────────────────────────────────────────────────────╯</span>
+ <span class="key">↑↓</span> <span class="dim">button</span>   <span class="key">↵</span> <span class="dim">remap</span>   <span class="key">m</span> <span class="dim">macro</span>   <span class="key">d</span> <span class="dim">default</span>   <span class="key">x</span> <span class="dim">disable</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+<!-- ACTION PICKER popup over buttons -->
+<div class="screen">
+  <div class="stitle">› Action picker — modal popup (↵ on a button)</div>
+  <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron</span></div>
+<pre>
+<span class="dim">╭─ menu ───────╮╭─ Buttons ────────────────────────────────────────────╮</span>
+<span class="dim">│</span> <span class="dim">Overview</span>     <span class="dim">││</span>  <span class="dim">id  button       ╭─ Assign: Side scroll ↑ ──────╮</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">DPI</span>          <span class="dim">││</span>  <span class="dim">L   Left         │</span> <span class="row"> Mouse      ▸          </span> <span class="dim">│</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Polling</span>      <span class="dim">││</span>  <span class="dim">R   Right        │</span> <span class="sub">Keyboard</span>             <span class="dim">│</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Sensor</span>       <span class="dim">││</span>  <span class="dim">M   Middle       │</span> <span class="sub">Media</span>                <span class="dim">│</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="sel"> Buttons    </span> <span class="dim">││</span>  <span class="dim">11  Side ↑       │</span> <span class="sub">Macro</span>                <span class="dim">│</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Macros</span>       <span class="dim">││</span>  <span class="dim">Fwd Forward      │</span> <span class="sub">DPI</span>  <span class="sub">Disable</span>  <span class="sub">Default</span> <span class="dim">│</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Profiles</span>     <span class="dim">││</span>  <span class="dim">SideW Vol        │</span> <span class="dim">left right middle fwd…</span> <span class="dim">│</span>      <span class="dim">│</span>
+<span class="dim">│</span>              <span class="dim">││</span>                 <span class="dim">╰──────────────────────╯</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">●</span> <span class="sub">M6 8K</span>      <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">99%</span> <span class="yl">⚡</span>       <span class="dim">││</span>  <span class="dim">type then pick a value · esc cancel</span>                  <span class="dim">│</span>
+<span class="dim">╰──────────────╯╰──────────────────────────────────────────────────────╯</span>
+ <span class="key">↑↓</span> <span class="dim">type</span>   <span class="key">→</span> <span class="dim">values</span>   <span class="key">↵</span> <span class="dim">assign</span>   <span class="key">esc</span> <span class="dim">cancel</span>
+</pre>
+  </div>
+</div>
+
+<!-- MACROS -->
+<div class="screen">
+  <div class="stitle">› Macros — recorder / editor</div>
+  <div class="term"><div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron</span></div>
+<pre>
+<span class="dim">╭─ menu ───────╮╭─ Macro · assign to Side scroll ↑ ────────────────────╮</span>
+<span class="dim">│</span> <span class="dim">Overview</span>     <span class="dim">││</span>  <span class="sub">Build a sequence, then ↵ to upload (auto-chunks)</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">DPI</span>          <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Polling</span>      <span class="dim">││</span>   <span class="dim">1</span>  <span class="gr">↓</span> <span class="text">Left</span>                                          <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Sensor</span>       <span class="dim">││</span>   <span class="dim">2</span>  <span class="rd">↑</span> <span class="text">Left</span>                                          <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Buttons</span>      <span class="dim">││</span>   <span class="dim">3</span>  <span class="gr">↓</span> <span class="text">Right</span>                                         <span class="dim">│</span>
+<span class="dim">│</span> <span class="sel"> Macros     </span> <span class="dim">││</span>  <span class="row"> ▸4  ↑ Left                              + add  </span>  <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Profiles</span>     <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span>              <span class="dim">││</span>  <span class="sub">text mode:</span> <span class="text">type a string →</span> <span class="dim">auto key down/up</span>        <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">●</span> <span class="sub">M6 8K</span>      <span class="dim">││</span>  <span class="sub">loop</span> <span class="text">stop on release</span>   <span class="sub">delay</span> <span class="text">off</span>   <span class="sub">4 events</span>     <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">99%</span> <span class="yl">⚡</span>       <span class="dim">││</span>  <span class="gr">✓ uploaded (len 22) → button is now Macro</span>          <span class="dim">│</span>
+<span class="dim">╰──────────────╯╰──────────────────────────────────────────────────────╯</span>
+ <span class="key">↑↓</span> <span class="dim">step</span>   <span class="key">+</span> <span class="dim">add</span>   <span class="key">del</span> <span class="dim">remove</span>   <span class="key">t</span> <span class="dim">text mode</span>   <span class="key">↵</span> <span class="dim">upload</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+</body>
+</html>

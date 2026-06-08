@@ -229,7 +229,7 @@ real dongle (active profile idx 3 and 4).
   So rate code = high nibble of `resp[3]`; low nibble = active profile index
   (this is why `resp[2..3]` shifted `23↔24` between earlier sessions — that was
   the active profile changing, not the rate).
-- Codes over the 2.4 GHz dongle: `0=125, 1=250, 2=500, 3=1000, 4=2000, 5=4000`
+- Codes (Launcher "Levels: 6"): `0=125, 1=500, 2=1000, 3=2000, 4=4000, 5=8000`
   Hz. (8000 Hz is cable-only and not offered on the dongle.)
 
 The old FINDINGS `0x0D`/`0x0E` "REPORT_RATE_GET/SET" map does NOT apply to this

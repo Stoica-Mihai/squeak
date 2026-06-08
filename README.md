@@ -30,7 +30,7 @@ python3 -m keycron dpi 1600             # set active profile's DPI (50..5000)
 python3 -m keycron dpi 3200 --index 2   # set a specific preset slot
 
 python3 -m keycron polling              # read polling rate
-python3 -m keycron polling 1000         # 125/250/500/1000/2000/4000 Hz
+python3 -m keycron polling 1000         # 125/500/1000/2000/4000/8000 Hz
 
 python3 -m keycron sensor               # read sensor params
 python3 -m keycron sensor --scroll-dir 1 --lod 2 --motion 1   # set sensor

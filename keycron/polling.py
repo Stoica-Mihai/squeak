@@ -3,8 +3,8 @@
 CMD_SET_RATE = 0x41   # short channel
 CMD_GET_BLOCK = 0x06  # long channel; rate code = high nibble of resp[3]
 
-# Code -> Hz. Six codes seen over the 2.4 GHz dongle (8K rate is cable-only).
-CODE_TO_HZ = {0: 125, 1: 250, 2: 500, 3: 1000, 4: 2000, 5: 4000}
+# Code -> Hz, per the Launcher's Wired/2.4GHz list (no 250 Hz).
+CODE_TO_HZ = {0: 125, 1: 500, 2: 1000, 3: 2000, 4: 4000, 5: 8000}
 HZ_TO_CODE = {hz: code for code, hz in CODE_TO_HZ.items()}
 
 # Constant tail the Launcher appends to the SET frame.

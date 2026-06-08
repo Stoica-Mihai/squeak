@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>keycron TUI — design mockups</title>
+<style>
+  :root{
+    --base:#1e1e2e; --mantle:#181825; --crust:#11111b;
+    --text:#cdd6f4; --sub:#a6adc8; --over:#6c7086; --surf:#313244;
+    --blue:#89b4fa; --green:#a6e3a1; --red:#f38ba8; --yellow:#f9e2af;
+    --mauve:#cba6f7; --teal:#94e2d5; --peach:#fab387; --sky:#89dceb;
+  }
+  body{background:#0b0b12;color:var(--text);font-family:"JetBrains Mono","Fira Code",ui-monospace,monospace;
+       margin:0;padding:40px;line-height:1.35;}
+  h1{font-weight:600;color:var(--text);font-size:20px;margin:0 0 4px}
+  .lead{color:var(--sub);margin:0 0 34px;font-size:13px}
+  .variant{margin:0 0 46px}
+  .vtitle{color:var(--mauve);font-size:14px;margin:0 0 2px;font-weight:600}
+  .vnote{color:var(--over);font-size:12px;margin:0 0 12px}
+  .term{background:var(--base);border-radius:10px;overflow:hidden;
+        box-shadow:0 12px 40px rgba(0,0,0,.55);max-width:860px;border:1px solid #2a2a3a}
+  .bar{background:var(--crust);padding:8px 12px;display:flex;align-items:center;gap:7px}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f56}.y{background:#ffbd2e}.g{background:#27c93f}
+  .bt{color:var(--over);font-size:12px;margin-left:8px}
+  pre{margin:0;padding:16px 18px;font-size:13px;white-space:pre;overflow-x:auto}
+  .b{color:var(--blue)}.gr{color:var(--green)}.rd{color:var(--red)}.yl{color:var(--yellow)}
+  .mv{color:var(--mauve)}.tl{color:var(--teal)}.pe{color:var(--peach)}.sk{color:var(--sky)}
+  .dim{color:var(--over)}.sub{color:var(--sub)}.bold{font-weight:700}
+  .sel{background:var(--surf);color:#fff;font-weight:600}
+  .key{color:var(--base);background:var(--blue);padding:0 2px;border-radius:2px;font-weight:700}
+  .tab-on{background:var(--blue);color:var(--crust);font-weight:700}
+</style>
+</head>
+<body>
+<h1>keycron — TUI design directions</h1>
+<p class="lead">Terminal-accurate mockups (box-drawing, Catppuccin Mocha palette, real M6 data). Pick a direction, then I build it in ratatui.</p>
+
+<!-- ============ VARIANT A : TABBED (gitui style) ============ -->
+<div class="variant">
+  <div class="vtitle">A · Tabbed workspace</div>
+  <div class="vnote">Top tab bar, one focused panel at a time, command footer. Familiar (gitui / lazygit). Scales to many sections.</div>
+  <div class="term">
+    <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron — Keychron M6 8K</span></div>
+<pre>
+<span class="dim">╭──────────────────────────────────────────────────────────────────────╮</span>
+<span class="dim">│</span> <span class="tab-on"> Overview </span> <span class="sub">DPI</span>   <span class="sub">Polling</span>   <span class="sub">Sensor</span>   <span class="sub">Buttons</span>   <span class="sub">Macros</span>          <span class="dim">│</span>
+<span class="dim">├──────────────────────────────────────────────────────────────────────┤</span>
+<span class="dim">│</span>                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="sub">Device</span>      Keychron M6 8K  <span class="dim">·</span> wired  <span class="dim">·</span> fw <span class="tl">0.1.6</span>                   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="sub">Battery</span>     <span class="gr">███████████████████</span><span class="dim">░</span>  <span class="gr bold">99%</span>  <span class="yl">⚡ charging</span>            <span class="dim">│</span>
+<span class="dim">│</span>                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="sub">DPI</span>         <span class="dim">400  800  1600  4250</span>  <span class="pe bold">[5000]</span>  <span class="dim">← active</span>            <span class="dim">│</span>
+<span class="dim">│</span>  <span class="sub">Polling</span>     <span class="b bold">125 Hz</span>                                                <span class="dim">│</span>
+<span class="dim">│</span>  <span class="sub">LOD</span>         <span class="text">1</span>      <span class="sub">Scroll</span> <span class="text">normal</span>     <span class="sub">Angle</span> <span class="dim">off</span>             <span class="dim">│</span>
+<span class="dim">│</span>  <span class="sub">Debounce</span>    <span class="text">4 ms</span>   <span class="sub">Sleep</span>  <span class="text">10 s</span>       <span class="sub">Motion</span> <span class="gr">on</span>             <span class="dim">│</span>
+<span class="dim">│</span>                                                                        <span class="dim">│</span>
+<span class="dim">╰──────────────────────────────────────────────────────────────────────╯</span>
+ <span class="key">Tab</span> <span class="dim">section</span>   <span class="key">↑↓</span> <span class="dim">move</span>   <span class="key">↵</span> <span class="dim">edit</span>   <span class="key">r</span> <span class="dim">refresh</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+<!-- ============ VARIANT B : SIDEBAR (k9s style) ============ -->
+<div class="variant">
+  <div class="vtitle">B · Sidebar navigation</div>
+  <div class="vnote">Persistent left menu + detail pane. Always shows where you are. Good for editing flows (k9s / spotify-tui).</div>
+  <div class="term">
+    <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron</span></div>
+<pre>
+<span class="dim">╭─ menu ───────╮╭─ DPI ────────────────────────────────────────────────╮</span>
+<span class="dim">│</span> <span class="dim">Overview</span>     <span class="dim">││</span>  <span class="sub">Edit a preset, then</span> <span class="key">↵</span> <span class="sub">to write &amp; verify</span>               <span class="dim">│</span>
+<span class="dim">│</span> <span class="sel"> DPI        </span> <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Polling</span>      <span class="dim">││</span>    <span class="dim">1</span>   <span class="text">400</span>    <span class="dim">────●───────────────────────</span>          <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Sensor</span>       <span class="dim">││</span>    <span class="dim">2</span>   <span class="text">800</span>    <span class="dim">──────●─────────────────────</span>          <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Buttons</span>      <span class="dim">││</span>    <span class="dim">3</span>   <span class="text">1600</span>   <span class="dim">─────────●──────────────────</span>          <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Macros</span>       <span class="dim">││</span>    <span class="dim">4</span>   <span class="text">4250</span>   <span class="dim">──────────────────●─────────</span>          <span class="dim">│</span>
+<span class="dim">│</span> <span class="dim">Profiles</span>     <span class="dim">││</span>  <span class="pe">▸ 5</span>   <span class="pe bold">5000</span>   <span class="pe">────────────────────────●───</span>  <span class="pe">active</span>  <span class="dim">│</span>
+<span class="dim">│</span>              <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">●</span> <span class="sub">M6 8K</span>      <span class="dim">││</span>  <span class="sub">range</span> <span class="dim">50–5000  step 50</span>                              <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">99%</span> <span class="yl">⚡</span>       <span class="dim">││</span>                                                      <span class="dim">│</span>
+<span class="dim">╰──────────────╯╰──────────────────────────────────────────────────────╯</span>
+ <span class="key">↑↓</span> <span class="dim">nav</span>   <span class="key">←→</span> <span class="dim">adjust</span>   <span class="key">↵</span> <span class="dim">apply</span>   <span class="key">a</span> <span class="dim">set active</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+<!-- ============ VARIANT C : GRID DASHBOARD (btop style) ============ -->
+<div class="variant">
+  <div class="vtitle">C · Live grid dashboard</div>
+  <div class="vnote">Everything visible at once in tiled panels; click/hotkey a tile to edit inline. Dense, "control panel" feel (btop / bottom).</div>
+  <div class="term">
+    <div class="bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="bt">keycron — dashboard</span></div>
+<pre>
+<span class="dim">╭─</span> <span class="b">Battery</span> <span class="dim">──────────╮╭─</span> <span class="b">DPI</span> <span class="dim">─────────────────╮╭─</span> <span class="b">Polling</span> <span class="dim">──────────╮</span>
+<span class="dim">│</span>  <span class="gr bold">99%</span> <span class="yl">⚡ charging</span>   <span class="dim">││</span> <span class="dim">400 800 1600 4250</span>    <span class="dim">││</span> <span class="b bold">[125]</span> <span class="dim">500 1000</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="gr">██████████████</span><span class="dim">░</span>   <span class="dim">││</span> <span class="pe bold">[5000]</span> <span class="dim">active</span>        <span class="dim">││</span> <span class="dim">2000 4000 8000</span>     <span class="dim">│</span>
+<span class="dim">╰───────────────────╯╰──────────────────────╯╰─────────────────────╯</span>
+<span class="dim">╭─</span> <span class="b">Sensor</span> <span class="dim">────────────────────╮╭─</span> <span class="b">Buttons</span> <span class="dim">────────────────────╮</span>
+<span class="dim">│</span> <span class="sub">LOD</span>        <span class="text">1 mm</span>             <span class="dim">││</span> <span class="dim">L</span>  <span class="text">left click</span>     <span class="dim">R</span>  <span class="text">right</span>     <span class="dim">│</span>
+<span class="dim">│</span> <span class="sub">Scroll dir</span> <span class="text">normal</span>           <span class="dim">││</span> <span class="dim">M</span>  <span class="text">middle</span>         <span class="dim">▸ S↑</span> <span class="pe">left</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="sub">Angle snap</span> <span class="dim">off</span>              <span class="dim">││</span> <span class="dim">Fwd</span> <span class="text">forward</span>     <span class="dim">Bck</span> <span class="text">back</span>      <span class="dim">│</span>
+<span class="dim">│</span> <span class="sub">Motion</span>     <span class="gr">on</span>   <span class="sub">20K FPS</span> <span class="dim">off</span>  <span class="dim">││</span> <span class="dim">SideW</span> <span class="text">vol +/-</span>   <span class="mv">macro×1</span>     <span class="dim">│</span>
+<span class="dim">╰─────────────────────────────╯╰─────────────────────────────────╯</span>
+<span class="dim">╭─</span> <span class="b">Debounce / Sleep</span> <span class="dim">──────────╮╭─</span> <span class="b">Profile</span> <span class="dim">────────────────────╮</span>
+<span class="dim">│</span> <span class="sub">Debounce</span> <span class="text">4 ms</span>   <span class="sub">Sleep</span> <span class="text">10 s</span>   <span class="dim">││</span> <span class="text">5</span> <span class="dim">slots ·</span> <span class="pe">#5 active</span> <span class="dim">·</span> <span class="text">125Hz</span>   <span class="dim">│</span>
+<span class="dim">╰──────────────────────────────╯╰──────────────────────────────────╯</span>
+ <span class="key">1-6</span> <span class="dim">focus tile</span>   <span class="key">↵</span> <span class="dim">edit</span>   <span class="key">r</span> <span class="dim">refresh</span>   <span class="key">?</span> <span class="dim">help</span>   <span class="key">q</span> <span class="dim">quit</span>
+</pre>
+  </div>
+</div>
+
+</body>
+</html>

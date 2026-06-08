@@ -43,7 +43,7 @@ field map (Launcher class `zt`):
 | sensor.line | `b[15]>>3 & 1` | angle straightening |
 | sensor.motion_sync | `b[15]>>4 & 1` | |
 | sensor.scroll_dir | `b[15]>>6 & 1` | invert scroll |
-| sensor.fps20k | `b[52] & 1` | |
+| sensor.fps20k | `b[52] & 1` | Launcher "Sensor Sampling Mode": 0=Standard, 1=Competitive (≥20K scan, low latency, higher power) |
 | sensor.angle | signed `b[55]` | angle snap degrees |
 | debounce.value | `b[17]` | ms |
 | debounce.values | `b[30:40]` | per-button table |
@@ -79,8 +79,8 @@ Battery, version, vid/pid additionally come via the dongle-info reads (long cmd
 `setPollingRate` applies `pollingGearsSupport ? Us(level) : level`; our device
 reports `pollingGearsSupport=false`, so the level is sent raw.
 
-Polling code → Hz (over dongle): `0=125, 1=250, 2=500, 3=1000, 4=2000, 5=4000`
-(8000 cable-only).
+Polling code → Hz (Launcher "Levels: 6"): `0=125, 1=500, 2=1000, 3=2000,
+4=4000, 5=8000`.
 
 ## Buttons — config channel, cmd `0x52`/`0x62` (VERIFIED LIVE)
 
