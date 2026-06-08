@@ -114,21 +114,16 @@ pub fn is_present(b: &ButtonInfo) -> bool {
     !(b.type_id == TYPE_DEFAULT && b.data == EMPTY_DEFAULT_DATA)
 }
 
-/// Best-effort physical name. Inferred from the Launcher's mouse action order
-/// (left,right,middle,forward,backward) plus live evidence (ids 0-4 default to
-/// the five main buttons; 5/6 default to side-scroll volume). The Launcher's
-/// real map is built dynamically from device key-info, so ids 7+ aren't named.
+/// Verified physical name for a slot id, or None if not yet mapped.
+///
+/// The earlier inferred order (left,right,middle,…) was DISPROVEN live: id 1 is
+/// the middle button, not right. Names are now only filled in as each id is
+/// empirically confirmed (assign a macro, press the physical button, observe).
 pub fn friendly_name(id: u8) -> Option<&'static str> {
-    Some(match id {
-        0 => "Left",
-        1 => "Right",
-        2 => "Middle",
-        3 => "Forward",
-        4 => "Backward",
-        5 => "Side ↑",
-        6 => "Side ↓",
-        _ => return None,
-    })
+    match id {
+        1 => Some("Middle"), // confirmed: macro fired on physical middle click
+        _ => None,
+    }
 }
 
 pub fn get_all(dev: &mut Device, count: usize) -> Result<Vec<ButtonInfo>, HidError> {
