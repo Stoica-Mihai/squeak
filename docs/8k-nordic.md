@@ -121,17 +121,26 @@ suggests). One `0x54` frame uploads the macro AND binds it to the button id
   Invalid/non-physical button id → `e4 05 54` (status 5).
 - `loopType 1` = "Stop on Release".
 
-**Event** = 4 bytes `[flag, code, delay_lo, delay_hi]`:
-- flag `0x88` = press, `0x08` = release.
-- mouse `code`: `1 left, 2 right, 3 middle, 4 backward, 5 forward` (left/right
-  verified; a left+right click macro reproduced the Launcher's bytes exactly).
-- `delay` LE16 ms (0 when delay disabled).
+**Event** = 4 bytes `[flag, code, delay_lo, delay_hi]`, `flag = press(0x80) | class`:
 
-Verified: a 4-event macro (Ldown, Lup, Rdown, Lup) on id 11 produced `len=0x16`
-and the button read back as Macro, matching the Launcher capture byte-for-byte.
-Implemented in `keycron/macro.py`; CLI `keycron macro <id> left right …`.
-Keyboard/media macro events are not yet captured (encoding likely flag low-nibble
-≠ mouse class) — needs a keyboard-macro capture to confirm.
+| class | meaning | code | press / release |
+|---|---|---|---|
+| 1 | keyboard key | HID usage | `0x81` / `0x01` |
+| 2 | modifier | bitmask (ctrl1 shift2 alt4 gui8, R+16/32/64/128) | `0x82` / `0x02` |
+| 8 | mouse button | 1 left, 2 right, 3 middle, 4 back, 5 fwd | `0x88` / `0x08` |
+
+`delay` LE16 ms (0 when delay disabled). All three classes verified: the mouse
+capture (Ldown/Lup/Rdown/Lup) and a keyboard capture cross-checked against the
+Launcher's export JSON (LShift, KC_1, Ctrl+A, …) decode exactly.
+
+**Long macros — chunked via cmd `0x71`.** When the `0x54` frame exceeds one
+report (~12 events), the Launcher splits it: `0x71 <seq> <len> <chunk>` frames,
+each acked `0x72 00`; the reassembled chunks equal the full `0x54` frame. Not yet
+implemented (`keycron/macro.py` raises for over-length macros); the chunk `seq`
+byte semantics need a full-frame capture to finalize.
+
+Implemented in `keycron/macro.py` (mouse + keyboard + modifier, single frame).
+CLI: `keycron macro <id> click left right` / `keycron macro <id> text "hi"`.
 
 ## Gestures / tap-holds / combos — NAPE group (`0xA7`=167)
 

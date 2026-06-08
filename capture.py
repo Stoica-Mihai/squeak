@@ -44,10 +44,8 @@ def show(direction, data):
     nonzero = [(i, b) for i, b in enumerate(body) if b]
     ascii_ = "".join(chr(b) if 32 <= b < 127 else "." for b in body[:24])
     print(f"\n{direction} report 0x{rid:02x} ({len(body)}B)")
-    print("  hex :", " ".join(f"{b:02x}" for b in body[:32]))
-    print("  off :", " ".join(f"{i:02d}" for i in range(min(32, len(body)))))
-    print("  ascii:", ascii_)
-    print("  nonzero offsets:", [(i, hex(b)) for i, b in nonzero[:16]])
+    print("  hex :", " ".join(f"{b:02x}" for b in body))
+    print("  ascii:", "".join(chr(b) if 32 <= b < 127 else "." for b in body))
 
 
 def main():

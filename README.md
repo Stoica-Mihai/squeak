@@ -45,7 +45,8 @@ python3 -m keycron button 11 mouse right        # assign a mouse action
 python3 -m keycron button 11 key 0x04 --mods ctrl   # assign Ctrl+A
 python3 -m keycron button 11 disable
 
-python3 -m keycron macro 11 left right left   # mouse-click macro onto a button
+python3 -m keycron macro 11 click left right   # mouse-click macro onto a button
+python3 -m keycron macro 11 text "hi"          # keyboard macro (types text)
 
 python3 -m keycron reset --yes                       # factory reset (all)
 python3 -m keycron reset --categories dpi sensor --yes
@@ -54,10 +55,10 @@ python3 -m keycron reset --categories dpi sensor --yes
 Every write re-reads the device and confirms the value took. All commands above
 are verified live on the 8k_nordic device.
 
-Not yet implemented (documented in `docs/`): **keyboard/media macro events**
-(only mouse-click macros captured so far), scroll-wheel **encoder**, and
-gestures/tap-holds/combos (NAPE `0xA7` group). Button remap and mouse-click
-macros both ride the config channel and are fully implemented.
+Macros support mouse / keyboard / modifier events but only **short** ones (one
+HID report, ~12 events) — long macros use a `0x71` chunking scheme that isn't
+implemented yet. Also documented-but-not-implemented (in `docs/`): scroll-wheel
+**encoder** and gestures/tap-holds/combos (NAPE `0xA7` group).
 
 ## Protocol
 

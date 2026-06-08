@@ -107,9 +107,12 @@ def cmd_button(dev, args):
 
 
 def cmd_macro(dev, args):
-    events = []
-    for c in args.clicks:
-        events += Mac.click(c)
+    if args.mode == "click":
+        events = []
+        for c in args.args:
+            events += Mac.click(c)
+    else:  # text
+        events = Mac.type_text(" ".join(args.args))
     print(Mac.set_macro(dev, args.id, events))
 
 
@@ -169,10 +172,11 @@ def main():
     s.add_argument("--mods", nargs="*", default=[], choices=list(B.MOD))
     s.set_defaults(fn=cmd_button)
 
-    s = sub.add_parser("macro", help="record a mouse-click macro onto a button")
+    s = sub.add_parser("macro", help="record a macro onto a button (short macros only)")
     s.add_argument("id", type=int)
-    s.add_argument("clicks", nargs="+", choices=list(Mac.MOUSE_BTN),
-                   help="sequence of clicks, e.g. left right left")
+    s.add_argument("mode", choices=["click", "text"])
+    s.add_argument("args", nargs="+",
+                   help="click: button names (left right ..); text: a string to type")
     s.set_defaults(fn=cmd_macro)
 
     s = sub.add_parser("reset", help="factory reset (needs --yes)")
