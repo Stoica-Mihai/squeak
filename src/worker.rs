@@ -7,16 +7,20 @@ use std::thread::{self, JoinHandle};
 
 use crate::hid::{Device, DeviceInfo, find_config};
 use crate::proto::block::{self, Settings};
-use crate::proto::{self, Variant};
+use crate::proto::{self, Variant, dpi, polling};
 
 pub enum Cmd {
     ReadAll,
+    SetDpi { index: usize, value: u16 },
+    SetRate { hz: u32 },
     Shutdown,
 }
 
 pub enum Update {
     Connected { name: String, variant: Variant },
     Settings(Box<Settings>),
+    /// Result of a write, after read-back. Drives the ✓/✗ status line.
+    Written { ok: bool, msg: String },
     Error(String),
 }
 
@@ -51,46 +55,93 @@ impl Drop for Worker {
 fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
     let mut dev: Option<Device> = None;
     while let Ok(cmd) = cmd_rx.recv() {
-        match cmd {
-            Cmd::Shutdown => break,
-            Cmd::ReadAll => {
-                if dev.is_none() {
-                    match connect() {
-                        Ok((info, d)) => {
-                            let variant = proto::detect(info.usage_page);
-                            let name = if info.name.is_empty() {
-                                format!("Keychron {:04x}:{:04x}", info.vid, info.pid)
-                            } else {
-                                info.name
-                            };
-                            if update_tx.send(Update::Connected { name, variant }).is_err() {
-                                break;
-                            }
-                            dev = Some(d);
-                        }
-                        Err(e) => {
-                            if update_tx.send(Update::Error(e)).is_err() {
-                                break;
-                            }
-                            continue;
-                        }
+        if matches!(cmd, Cmd::Shutdown) {
+            break;
+        }
+        // Ensure connected before any device command.
+        if dev.is_none() {
+            match ensure_connected(&update_tx) {
+                Ok(d) => dev = Some(d),
+                Err(stop) => {
+                    if stop {
+                        break;
                     }
+                    continue;
                 }
+            }
+        }
+        let stop = match cmd {
+            Cmd::Shutdown => true,
+            Cmd::ReadAll => {
                 let d = dev.as_mut().unwrap();
                 match block::read_all(d) {
-                    Ok(s) => {
-                        if update_tx.send(Update::Settings(Box::new(s))).is_err() {
-                            break;
-                        }
-                    }
+                    Ok(s) => send(&update_tx, Update::Settings(Box::new(s))),
                     Err(e) => {
-                        dev = None; // drop; reconnect on next ReadAll
-                        if update_tx.send(Update::Error(format!("read failed: {e}"))).is_err() {
-                            break;
-                        }
+                        dev = None; // drop; reconnect on next command
+                        send(&update_tx, Update::Error(format!("read failed: {e}")))
                     }
                 }
             }
+            Cmd::SetDpi { index, value } => {
+                let result = dpi::set_dpi(dev.as_mut().unwrap(), value, index)
+                    .map(|_| format!("DPI preset {} → {value} ✓ verified", index + 1));
+                report_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetRate { hz } => {
+                let result = polling::set_rate(dev.as_mut().unwrap(), hz)
+                    .map(|_| format!("polling → {hz} Hz ✓ verified"));
+                report_write(&update_tx, &mut dev, result)
+            }
+        };
+        if stop {
+            break;
+        }
+    }
+}
+
+fn send(tx: &Sender<Update>, u: Update) -> bool {
+    tx.send(u).is_err()
+}
+
+/// Connect, announcing it. Err(true) = channel closed (stop); Err(false) = retry later.
+fn ensure_connected(tx: &Sender<Update>) -> Result<Device, bool> {
+    match connect() {
+        Ok((info, d)) => {
+            let variant = proto::detect(info.usage_page);
+            let name = if info.name.is_empty() {
+                format!("Keychron {:04x}:{:04x}", info.vid, info.pid)
+            } else {
+                info.name
+            };
+            if send(tx, Update::Connected { name, variant }) {
+                return Err(true);
+            }
+            Ok(d)
+        }
+        Err(e) => Err(send(tx, Update::Error(e))),
+    }
+}
+
+/// Emit a Written status from a write result, then refresh the snapshot. On a
+/// transport error, drop the device so the next command reconnects.
+fn report_write(
+    tx: &Sender<Update>,
+    dev_slot: &mut Option<Device>,
+    result: Result<String, crate::hid::HidError>,
+) -> bool {
+    let written = match &result {
+        Ok(msg) => Update::Written { ok: true, msg: msg.clone() },
+        Err(e) => Update::Written { ok: false, msg: e.to_string() },
+    };
+    if send(tx, written) {
+        return true;
+    }
+    // Refresh from the device so the UI reflects the committed state.
+    match block::read_all(dev_slot.as_mut().unwrap()) {
+        Ok(s) => send(tx, Update::Settings(Box::new(s))),
+        Err(e) => {
+            *dev_slot = None;
+            send(tx, Update::Error(format!("read failed: {e}")))
         }
     }
 }

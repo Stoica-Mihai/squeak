@@ -2,6 +2,7 @@
 //! other variants are detected and reported Unsupported until hardware-verified.
 
 pub mod block;
+pub mod dpi;
 pub mod polling;
 
 use crate::hid::enumerate::USAGE_PAGE_CONFIG;

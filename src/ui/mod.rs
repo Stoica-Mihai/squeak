@@ -1,7 +1,9 @@
 //! Frame layout: sidebar | content, with a one-line footer (keybinds + status).
 //! Overview is wired (M1); other sections are placeholders pending M2+.
 
+mod dpi;
 mod overview;
+mod polling;
 mod sidebar;
 
 use ratatui::{
@@ -36,6 +38,8 @@ pub fn render(f: &mut Frame, app: &App) {
 fn render_content(f: &mut Frame, area: Rect, app: &App) {
     match app.screen() {
         Screen::Overview => overview::render(f, area, app),
+        Screen::Dpi => dpi::render(f, area, app),
+        Screen::Polling => polling::render(f, area, app),
         other => render_placeholder(f, area, app, other),
     }
 }
@@ -64,21 +68,45 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
         StatusLevel::Err => th.err,
     };
 
-    let key = |k: &'static str| {
-        Span::styled(k, Style::default().fg(th.accent).add_modifier(Modifier::BOLD))
+    let key = |k: &str| {
+        Span::styled(
+            k.to_string(),
+            Style::default().fg(th.accent).add_modifier(Modifier::BOLD),
+        )
     };
-    let lbl = |t: &'static str| Span::styled(t, Style::default().fg(th.dim));
+    let lbl = |t: &str| Span::styled(t.to_string(), Style::default().fg(th.dim));
 
-    let line = Line::from(vec![
-        key(" ↑↓ "),
-        lbl("nav  "),
-        key("r "),
-        lbl("refresh  "),
-        key("t "),
-        lbl("theme  "),
-        key("q "),
-        lbl("quit   "),
-        Span::styled(app.status.text.clone(), Style::default().fg(status_color)),
-    ]);
-    f.render_widget(Paragraph::new(line).style(Style::default().bg(th.bg)), area);
+    let mut spans = vec![key(" ⇥ "), lbl("section  ")];
+    match app.screen() {
+        Screen::Dpi => {
+            spans.push(key("↑↓ "));
+            spans.push(lbl("row  "));
+            spans.push(key("←→ "));
+            spans.push(lbl("±50 (⇧±500)  "));
+            spans.push(key("↵ "));
+            spans.push(lbl("apply  "));
+        }
+        Screen::Polling => {
+            spans.push(key("↑↓ "));
+            spans.push(lbl("pick  "));
+            spans.push(key("↵ "));
+            spans.push(lbl("apply  "));
+        }
+        _ => {}
+    }
+    spans.push(key("r "));
+    spans.push(lbl("refresh  "));
+    spans.push(key("t "));
+    spans.push(lbl("theme  "));
+    spans.push(key("q "));
+    spans.push(lbl("quit   "));
+    spans.push(Span::styled(
+        app.status.text.clone(),
+        Style::default().fg(status_color),
+    ));
+
+    f.render_widget(
+        Paragraph::new(Line::from(spans)).style(Style::default().bg(th.bg)),
+        area,
+    );
 }
