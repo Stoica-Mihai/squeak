@@ -6,7 +6,7 @@ use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
     text::Line,
-    widgets::{Block, Borders, List, ListItem, ListState},
+    widgets::{List, ListItem, ListState},
 };
 
 use crate::app::App;
@@ -26,12 +26,6 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         .collect();
 
     let list = List::new(items)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(th.border))
-                .title(" Polling rate "),
-        )
         .style(Style::default().fg(th.fg))
         .highlight_style(
             Style::default()

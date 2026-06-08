@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, Paragraph, Wrap},
+    widgets::{Gauge, Paragraph, Wrap},
 };
 
 use crate::app::{App, Conn};
@@ -13,22 +13,15 @@ use crate::proto::polling;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(th.border))
-        .title(" Overview ");
-    let inner = block.inner(area);
-    f.render_widget(block, area);
-
     let Some(s) = &app.settings else {
-        render_no_data(f, inner, app);
+        render_no_data(f, area, app);
         return;
     };
 
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(0)])
-        .split(inner);
+        .split(area);
 
     let pct = s.battery.percent.min(100);
     let charge = if s.battery.charging { " ⚡charging" } else { "" };

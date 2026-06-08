@@ -14,7 +14,7 @@ use crate::theme::{self, Theme};
 use crate::worker::{Cmd, Update};
 
 /// Left-sidebar sections. Order = display order.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Screen {
     Overview,
     Dpi,
@@ -47,6 +47,18 @@ impl Screen {
             Screen::Profiles => "Profiles",
         }
     }
+
+    /// Whether the content pane accepts focus / editing (others are read-only).
+    pub fn interactive(self) -> bool {
+        matches!(self, Screen::Dpi | Screen::Polling)
+    }
+}
+
+/// Which pane has keyboard focus.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Focus {
+    Sidebar,
+    Content,
 }
 
 /// Connection state to the device.
@@ -76,6 +88,7 @@ pub struct App {
     pub status: Status,
     pub conn: Conn,
     pub settings: Option<Settings>,
+    pub focus: Focus,
 
     // DPI editor
     pub dpi_cursor: usize,
@@ -100,6 +113,7 @@ impl App {
             },
             conn: Conn::Connecting,
             settings: None,
+            focus: Focus::Sidebar,
             dpi_cursor: 0,
             dpi_edit: [0; NUM_PRESETS],
             dpi_dirty: false,
@@ -139,18 +153,44 @@ impl App {
                 self.request_read();
                 self.set_status("refreshing…".into(), StatusLevel::Info);
             }
-            Action::NextSection => {
-                self.screen_idx = (self.screen_idx + 1) % Screen::ALL.len();
-            }
-            Action::PrevSection => {
-                self.screen_idx = (self.screen_idx + Screen::ALL.len() - 1) % Screen::ALL.len();
-            }
-            Action::CursorUp => self.move_cursor(-1),
-            Action::CursorDown => self.move_cursor(1),
-            Action::Adjust(delta) => self.adjust(delta),
-            Action::Apply => self.apply_edit(),
+            Action::ToggleFocus => self.toggle_focus(),
+            Action::Back => self.focus = Focus::Sidebar,
+            Action::Vertical(d) => match self.focus {
+                Focus::Sidebar => self.section(d),
+                Focus::Content => self.move_cursor(d),
+            },
+            Action::Horizontal(d) => match self.focus {
+                Focus::Sidebar => {
+                    if d > 0 {
+                        self.enter_content();
+                    }
+                }
+                Focus::Content => self.adjust(d),
+            },
+            Action::Enter => match self.focus {
+                Focus::Sidebar => self.enter_content(),
+                Focus::Content => self.apply_edit(),
+            },
             Action::None => {}
         }
+    }
+
+    fn section(&mut self, delta: i32) {
+        let len = Screen::ALL.len() as i32;
+        self.screen_idx = (self.screen_idx as i32 + delta).rem_euclid(len) as usize;
+    }
+
+    fn enter_content(&mut self) {
+        if self.screen().interactive() {
+            self.focus = Focus::Content;
+        }
+    }
+
+    fn toggle_focus(&mut self) {
+        self.focus = match self.focus {
+            Focus::Sidebar if self.screen().interactive() => Focus::Content,
+            _ => Focus::Sidebar,
+        };
     }
 
     fn move_cursor(&mut self, delta: i32) {
@@ -242,4 +282,54 @@ impl App {
 /// Move an index by `delta`, clamped to `0..len`.
 fn clamp_idx(cur: usize, delta: i32, len: usize) -> usize {
     (cur as i32 + delta).clamp(0, len as i32 - 1) as usize
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc::channel;
+
+    fn app() -> App {
+        let (tx, _rx) = channel();
+        App::new(tx)
+    }
+
+    #[test]
+    fn vertical_navigates_sections_when_sidebar_focused() {
+        let mut a = app();
+        assert_eq!(a.screen_idx, 0);
+        a.update(Action::Vertical(1));
+        assert_eq!(a.screen_idx, 1);
+        a.update(Action::Vertical(-1));
+        assert_eq!(a.screen_idx, 0);
+        a.update(Action::Vertical(-1)); // wraps to last
+        assert_eq!(a.screen_idx, Screen::ALL.len() - 1);
+    }
+
+    #[test]
+    fn enter_focuses_content_only_on_interactive_screen() {
+        let mut a = app();
+        // Overview (idx 0) is not interactive: Enter stays on sidebar.
+        a.update(Action::Enter);
+        assert_eq!(a.focus, Focus::Sidebar);
+
+        // Move to DPI (interactive) and focus content.
+        a.update(Action::Vertical(1));
+        assert_eq!(a.screen(), Screen::Dpi);
+        a.update(Action::Enter);
+        assert_eq!(a.focus, Focus::Content);
+    }
+
+    #[test]
+    fn vertical_moves_cursor_when_content_focused() {
+        let mut a = app();
+        a.update(Action::Vertical(1)); // -> DPI
+        a.update(Action::Enter); // focus content
+        let section = a.screen_idx;
+        a.update(Action::Vertical(1));
+        assert_eq!(a.screen_idx, section, "section must not change in content focus");
+        assert_eq!(a.dpi_cursor, 1);
+        a.update(Action::Back);
+        assert_eq!(a.focus, Focus::Sidebar);
+    }
 }

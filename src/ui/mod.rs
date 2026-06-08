@@ -14,7 +14,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::app::{App, Screen, StatusLevel};
+use crate::app::{App, Focus, Screen, StatusLevel};
 
 pub fn render(f: &mut Frame, app: &App) {
     let th = app.theme();
@@ -30,34 +30,34 @@ pub fn render(f: &mut Frame, app: &App) {
         .constraints([Constraint::Length(18), Constraint::Min(0)])
         .split(rows[0]);
 
-    sidebar::render(f, cols[0], app);
+    sidebar::render(f, cols[0], app, app.focus == Focus::Sidebar);
     render_content(f, cols[1], app);
     render_footer(f, rows[1], app);
 }
 
 fn render_content(f: &mut Frame, area: Rect, app: &App) {
-    match app.screen() {
-        Screen::Overview => overview::render(f, area, app),
-        Screen::Dpi => dpi::render(f, area, app),
-        Screen::Polling => polling::render(f, area, app),
-        other => render_placeholder(f, area, app, other),
-    }
-}
-
-fn render_placeholder(f: &mut Frame, area: Rect, app: &App, screen: Screen) {
     let th = app.theme();
-    let body = Paragraph::new(Line::styled(
-        "not yet wired — coming in a later milestone",
-        Style::default().fg(th.dim),
-    ))
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(th.border))
-            .title(format!(" {} ", screen.title())),
-    )
-    .style(Style::default().fg(th.fg).bg(th.bg));
-    f.render_widget(body, area);
+    let focused = app.focus == Focus::Content;
+    let border = if focused { th.accent } else { th.border };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(border))
+        .title(format!(" {} ", app.screen().title()));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    match app.screen() {
+        Screen::Overview => overview::render(f, inner, app),
+        Screen::Dpi => dpi::render(f, inner, app),
+        Screen::Polling => polling::render(f, inner, app),
+        _ => f.render_widget(
+            Paragraph::new(Line::styled(
+                "not yet wired — coming in a later milestone",
+                Style::default().fg(th.dim),
+            )),
+            inner,
+        ),
+    }
 }
 
 fn render_footer(f: &mut Frame, area: Rect, app: &App) {
@@ -76,23 +76,37 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
     };
     let lbl = |t: &str| Span::styled(t.to_string(), Style::default().fg(th.dim));
 
-    let mut spans = vec![key(" ⇥ "), lbl("section  ")];
-    match app.screen() {
-        Screen::Dpi => {
-            spans.push(key("↑↓ "));
-            spans.push(lbl("row  "));
-            spans.push(key("←→ "));
-            spans.push(lbl("±50 (⇧±500)  "));
-            spans.push(key("↵ "));
-            spans.push(lbl("apply  "));
+    let mut spans = Vec::new();
+    match app.focus {
+        Focus::Sidebar => {
+            spans.push(key(" ↑↓ "));
+            spans.push(lbl("section  "));
+            if app.screen().interactive() {
+                spans.push(key("→ "));
+                spans.push(lbl("edit  "));
+            }
         }
-        Screen::Polling => {
-            spans.push(key("↑↓ "));
-            spans.push(lbl("pick  "));
-            spans.push(key("↵ "));
-            spans.push(lbl("apply  "));
+        Focus::Content => {
+            match app.screen() {
+                Screen::Dpi => {
+                    spans.push(key(" ↑↓ "));
+                    spans.push(lbl("row  "));
+                    spans.push(key("←→ "));
+                    spans.push(lbl("±50 (⇧±500)  "));
+                    spans.push(key("↵ "));
+                    spans.push(lbl("apply  "));
+                }
+                Screen::Polling => {
+                    spans.push(key(" ↑↓ "));
+                    spans.push(lbl("pick  "));
+                    spans.push(key("↵ "));
+                    spans.push(lbl("apply  "));
+                }
+                _ => {}
+            }
+            spans.push(key("⇥ "));
+            spans.push(lbl("back  "));
         }
-        _ => {}
     }
     spans.push(key("r "));
     spans.push(lbl("refresh  "));

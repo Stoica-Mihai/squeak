@@ -6,7 +6,7 @@ use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
 };
 
 use crate::app::App;
@@ -16,23 +16,16 @@ const VISUAL_MAX: u16 = 8000;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(th.border))
-        .title(" DPI presets ");
-    let inner = block.inner(area);
-    f.render_widget(block, area);
-
     let Some(s) = &app.settings else {
         f.render_widget(
             Paragraph::new(Line::styled("connecting…", Style::default().fg(th.dim))),
-            inner,
+            area,
         );
         return;
     };
     let active = s.dpi.active_levels[0] as usize;
 
-    let bar_w = (inner.width as usize).saturating_sub(30).max(4);
+    let bar_w = (area.width as usize).saturating_sub(30).max(4);
     let mut lines = vec![Line::from("")];
     for i in 0..app.dpi_edit.len() {
         let value = app.dpi_edit[i];
@@ -69,5 +62,5 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         "  ● = active profile   * = unsaved edit",
         Style::default().fg(th.dim),
     ));
-    f.render_widget(Paragraph::new(lines), inner);
+    f.render_widget(Paragraph::new(lines), area);
 }
