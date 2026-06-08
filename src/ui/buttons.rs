@@ -1,12 +1,12 @@
-//! Buttons screen: a table of button id → type → assignment. ↑↓ pick a row,
-//! ↵ opens the action picker, d restores default, x disables.
+//! Buttons screen: a table of button id → name → type → assignment. ↑↓ pick a
+//! row, ↵ opens the action picker, d restores default, x disables, m macro.
 
 use ratatui::{
     Frame,
-    layout::Rect,
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::Paragraph,
+    widgets::{List, ListItem, ListState, Paragraph},
 };
 
 use crate::app::App;
@@ -22,32 +22,43 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
-    let mut lines = vec![Line::styled(
-        "  id  button     type         assignment",
-        Style::default().fg(th.dim),
-    )];
-    for (i, b) in app.buttons.iter().enumerate() {
-        let selected = i == app.button_cursor;
-        let cursor = if selected { "▸" } else { " " };
-        let text = format!(
-            " {cursor} {id:>2}  {name:<9}  {ty:<11}  {label}",
-            id = b.id,
-            name = friendly_name(b.id).unwrap_or(""),
-            ty = type_name(b.type_id),
-            label = b.label,
-        );
-        let style = if selected {
-            Style::default().fg(th.sel_fg).bg(th.sel_bg).add_modifier(Modifier::BOLD)
-        } else if is_present(b) {
-            Style::default().fg(th.fg)
-        } else {
-            Style::default().fg(th.dim) // empty / non-physical slot
-        };
-        lines.push(Line::styled(text, style));
-    }
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(0), Constraint::Length(1)])
+        .split(area);
 
-    lines.push(Line::from(""));
-    lines.push(Line::from(vec![
+    f.render_widget(
+        Paragraph::new(Line::styled(
+            "   id  button     type         assignment",
+            Style::default().fg(th.dim),
+        )),
+        rows[0],
+    );
+
+    let items: Vec<ListItem> = app
+        .buttons
+        .iter()
+        .map(|b| {
+            let text = format!(
+                "{id:>2}  {name:<9}  {ty:<11}  {label}",
+                id = b.id,
+                name = friendly_name(b.id).unwrap_or(""),
+                ty = type_name(b.type_id),
+                label = b.label,
+            );
+            let fg = if is_present(b) { th.fg } else { th.dim };
+            ListItem::new(Line::styled(text, Style::default().fg(fg)))
+        })
+        .collect();
+
+    let list = List::new(items)
+        .highlight_style(Style::default().bg(th.sel_bg).add_modifier(Modifier::BOLD))
+        .highlight_symbol("▸ ");
+    let mut state = ListState::default();
+    state.select(Some(app.button_cursor));
+    f.render_stateful_widget(list, rows[1], &mut state);
+
+    let hint = Line::from(vec![
         Span::styled("  ↵", Style::default().fg(th.accent)),
         Span::styled(" remap   ", Style::default().fg(th.dim)),
         Span::styled("d", Style::default().fg(th.accent)),
@@ -56,6 +67,6 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         Span::styled(" disable   ", Style::default().fg(th.dim)),
         Span::styled("m", Style::default().fg(th.accent)),
         Span::styled(" macro", Style::default().fg(th.dim)),
-    ]));
-    f.render_widget(Paragraph::new(lines), area);
+    ]);
+    f.render_widget(Paragraph::new(hint), rows[2]);
 }

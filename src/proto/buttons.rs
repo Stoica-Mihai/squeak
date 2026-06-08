@@ -15,8 +15,10 @@ const TYPE_MEDIA: u8 = 3;
 const TYPE_DISABLE: u8 = 9;
 const TYPE_DEFAULT: u8 = 0;
 
-/// "Default" data sentinels: 0xffffff = real default button, 0 = empty slot.
-const DEFAULT_DATA: u32 = 0xffffff;
+/// A Default-type slot with data 0 is an empty / non-physical slot; a real
+/// default button carries non-zero data (0xffffff untouched, or a device
+/// default code after a restore).
+const EMPTY_DEFAULT_DATA: u32 = 0;
 
 /// Action type enum `S` from the Launcher.
 pub fn type_name(t: u8) -> &'static str {
@@ -101,15 +103,15 @@ fn label_for(type_id: u8, data: u32) -> String {
             .map(|n| n.to_string())
             .unwrap_or_else(|| format!("media 0x{:02x}", data >> 16)),
         TYPE_DISABLE => "disabled".to_string(),
-        TYPE_DEFAULT if data == DEFAULT_DATA => "default".to_string(),
-        TYPE_DEFAULT => "—".to_string(), // empty / non-physical slot
+        TYPE_DEFAULT if data == EMPTY_DEFAULT_DATA => "—".to_string(), // empty slot
+        TYPE_DEFAULT => "default".to_string(),
         t => type_name(t).to_string(),
     }
 }
 
 /// Whether this slot is a real, configurable button (not an empty slot).
 pub fn is_present(b: &ButtonInfo) -> bool {
-    !(b.type_id == TYPE_DEFAULT && b.data != DEFAULT_DATA)
+    !(b.type_id == TYPE_DEFAULT && b.data == EMPTY_DEFAULT_DATA)
 }
 
 /// Best-effort physical name. Inferred from the Launcher's mouse action order
