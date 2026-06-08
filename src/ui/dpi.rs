@@ -10,9 +10,7 @@ use ratatui::{
 };
 
 use crate::app::{App, StatusLevel};
-
-/// Display-only full-scale for the bar; higher values clamp.
-const VISUAL_MAX: u16 = 8000;
+use crate::proto::dpi::DPI_MAX;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();
@@ -24,6 +22,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         return;
     };
     let active = s.dpi.active_levels[0] as usize;
+    // Scale the bar to the sensor's full range (device reports 0 on fw 0.1.6).
+    let scale = if s.dpi.max > 0 { s.dpi.max } else { DPI_MAX };
 
     let rows = Layout::default()
         .direction(Direction::Vertical)
@@ -44,7 +44,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         .iter()
         .enumerate()
         .map(|(i, &value)| {
-            let filled = (value as usize * bar_w / VISUAL_MAX as usize).min(bar_w);
+            let filled = (value as usize * bar_w / scale as usize).min(bar_w);
             let mut spans = vec![
                 Span::styled(format!("{}  {value:>5}  ", i + 1), Style::default().fg(th.fg)),
                 Span::styled("█".repeat(filled), Style::default().fg(th.accent)),
@@ -77,7 +77,8 @@ fn footer(app: &App) -> Line<'static> {
         StatusLevel::Ok => Line::styled(format!("  {}", app.status.text), Style::default().fg(th.ok)),
         StatusLevel::Err => Line::styled(format!("  {}", app.status.text), Style::default().fg(th.err)),
         StatusLevel::Info => {
-            Line::styled("  step 50 dpi · 5 presets", Style::default().fg(th.dim))
+            let max = app.settings.as_ref().map(|s| if s.dpi.max > 0 { s.dpi.max } else { DPI_MAX }).unwrap_or(DPI_MAX);
+            Line::styled(format!("  range 50–{max} · step 50 · 5 presets"), Style::default().fg(th.dim))
         }
     }
 }
