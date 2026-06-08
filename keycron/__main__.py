@@ -104,6 +104,8 @@ def cmd_button(dev, args):
                              sum(B.MOD[m] for m in args.mods)))
     elif args.action == "disable":
         print(B.disable(dev, args.id))
+    elif args.action == "default":
+        print(B.restore_default(dev, args.id))
 
 
 def cmd_macro(dev, args):
@@ -167,7 +169,7 @@ def main():
 
     s = sub.add_parser("button", help="get/set one button")
     s.add_argument("id", type=int)
-    s.add_argument("action", nargs="?", choices=["mouse", "key", "disable"])
+    s.add_argument("action", nargs="?", choices=["mouse", "key", "disable", "default"])
     s.add_argument("value", nargs="?", help="mouse action name, or key HID code")
     s.add_argument("--mods", nargs="*", default=[], choices=list(B.MOD))
     s.set_defaults(fn=cmd_button)

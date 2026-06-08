@@ -8,11 +8,15 @@ Action data is a 24-bit big-endian value whose meaning depends on `type`.
 CMD_SET_BUTTON = 0x52
 CMD_GET_BUTTON = 0x62
 
-# Action type (Launcher enum S).
-TYPE = {0: "Remove", 1: "Mouse", 2: "Keyboard", 3: "Media", 4: "Macro",
+# Action type (Launcher enum S). IMPORTANT: type 0 ("Remove") means "use the
+# button's DEFAULT hardware function" (e.g. the left button left-clicks) -- NOT
+# "no function". To turn a button OFF use type 9 ("Disable"). Overriding a
+# button with any other type replaces its default; set it back to 0 to restore.
+TYPE = {0: "Default", 1: "Mouse", 2: "Keyboard", 3: "Media", 4: "Macro",
         5: "Dpi", 6: "Light", 7: "Game", 8: "ShortCut", 9: "Disable",
         10: "Profile", 13: "PollingRate"}
 TYPE_ID = {v: k for k, v in TYPE.items()}
+TYPE_ID["Remove"] = 0  # accept the Launcher's name too
 
 # Mouse action data (Launcher enum _), as the 24-bit value.
 MOUSE = {
@@ -70,4 +74,13 @@ def set_keyboard(dev, button_id, keycode, mods=0):
 
 
 def disable(dev, button_id):
+    """Turn a button OFF (no action). Different from restore_default."""
     return set_button(dev, button_id, TYPE_ID["Disable"], 0)
+
+
+def restore_default(dev, button_id):
+    """Restore a button's default hardware function (type 0)."""
+    ok, resp = dev.long_set(CMD_SET_BUTTON, button_id, 0, 0, 0, 0, 0)
+    if not ok:
+        raise RuntimeError(f"restore rejected: {resp}")
+    return get_button(dev, button_id)

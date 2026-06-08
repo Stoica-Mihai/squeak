@@ -97,6 +97,17 @@ Data is a 24-bit big-endian value; meaning depends on `type`.
 **Action type** (enum `S`): `0 Remove, 1 Mouse, 2 Keyboard, 3 Media, 4 Macro,
 5 Dpi, 6 Light, 7 Game, 8 ShortCut, 9 Disable, 10 Profile, 13 PollingRate`.
 
+> **IMPORTANT — type 0 ("Remove") = the button's DEFAULT hardware function**, not
+> "no function". A left-button slot at type 0 left-clicks. Overriding a slot with
+> any other type replaces its default; write type 0 to restore it. To turn a
+> button OFF entirely use type 9 ("Disable"). (Mislabeling this once broke left
+> click during development.) The CLI shows type 0 as "Default".
+
+The free-wheel/scroll-mode button (the unlabeled oval below the wheel in the
+Launcher's button diagram) is **not** in this matrix — it has no button id,
+emits no USB report, and the Launcher assigns it no action. It is a pure
+firmware/hardware mode button with no host-side hook.
+
 **Mouse action data** (enum `_`, the 24-bit value):
 `left 0x010000, right 0x020000, middle 0x040000, forward 0x080000,
 backward 0x100000, leftDouble 0x800000, upScroll 0x000200,
