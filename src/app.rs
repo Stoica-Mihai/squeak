@@ -224,10 +224,8 @@ pub struct App {
     pub last_update: Option<Instant>,
     pub focus: Focus,
 
-    // DPI editor
+    // DPI
     pub dpi_cursor: usize,
-    pub dpi_edit: [u16; NUM_PRESETS],
-    pub dpi_dirty: bool,
 
     // Polling editor (index into RATES_HZ)
     pub poll_sel: usize,
@@ -270,8 +268,6 @@ impl App {
             last_update: None,
             focus: Focus::Sidebar,
             dpi_cursor: 0,
-            dpi_edit: [0; NUM_PRESETS],
-            dpi_dirty: false,
             poll_sel: 0,
             sensor_cursor: 0,
             sensor_edit: SensorEdit::default(),
@@ -302,14 +298,6 @@ impl App {
 
     pub fn request_buttons(&self) {
         let _ = self.cmd_tx.send(Cmd::ReadButtons);
-    }
-
-    /// Has the DPI cursor's preset been edited away from the device value?
-    pub fn dpi_changed(&self, index: usize) -> bool {
-        match &self.settings {
-            Some(s) => self.dpi_edit[index] != s.dpi.presets[index],
-            None => false,
-        }
     }
 
     pub fn update(&mut self, action: Action) {
@@ -451,8 +439,6 @@ impl App {
         match self.text_buf.parse::<u16>() {
             Ok(v) => {
                 let v = v.clamp(DPI_MIN, DPI_MAX);
-                self.dpi_edit[self.dpi_cursor] = v;
-                self.dpi_dirty = true;
                 let _ = self.cmd_tx.send(Cmd::SetDpi { index: self.dpi_cursor, value: v });
                 self.set_status(format!("DPI preset {} → {v}…", self.dpi_cursor + 1), StatusLevel::Info);
             }
@@ -638,15 +624,8 @@ impl App {
     }
 
     fn adjust(&mut self, delta: i32) {
-        match self.screen() {
-            Screen::Dpi => {
-                let v = (self.dpi_edit[self.dpi_cursor] as i32 + delta)
-                    .clamp(DPI_MIN as i32, DPI_MAX as i32) as u16;
-                self.dpi_edit[self.dpi_cursor] = v;
-                self.dpi_dirty = true;
-            }
-            Screen::Sensor => self.adjust_sensor(delta.signum()),
-            _ => {}
+        if self.screen() == Screen::Sensor {
+            self.adjust_sensor(delta.signum());
         }
     }
 
@@ -687,11 +666,8 @@ impl App {
     fn apply_edit(&mut self) {
         match self.screen() {
             Screen::Dpi => {
-                let _ = self.cmd_tx.send(Cmd::SetDpi {
-                    index: self.dpi_cursor,
-                    value: self.dpi_edit[self.dpi_cursor],
-                });
-                self.set_status("applying DPI…".into(), StatusLevel::Info);
+                self.text_buf.clear();
+                self.modal = Some(Modal::DpiInput);
             }
             Screen::Polling => {
                 let _ = self.cmd_tx.send(Cmd::SetRate {
@@ -762,9 +738,6 @@ impl App {
             }
             Update::Settings(s) => {
                 // Reseed editors from the device unless the user has unsaved edits.
-                if !self.dpi_dirty {
-                    self.dpi_edit = s.dpi.presets;
-                }
                 let code = s.polling.levels[0] as usize;
                 if code < RATES_HZ.len() {
                     self.poll_sel = code;
@@ -784,9 +757,7 @@ impl App {
             Update::Written { ok, msg } => {
                 self.set_status(msg, if ok { StatusLevel::Ok } else { StatusLevel::Err });
                 if ok {
-                    // next Settings reseeds the editors
-                    self.dpi_dirty = false;
-                    self.sensor_dirty = false;
+                    self.sensor_dirty = false; // next Settings reseeds the sensor editor
                 }
             }
             Update::Error(e) => {

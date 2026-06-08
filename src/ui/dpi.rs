@@ -32,15 +32,16 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
     f.render_widget(
         Paragraph::new(vec![
-            Line::styled("  ←→ ±50 · ⇧←→ ±500", Style::default().fg(th.dim)),
+            Line::styled("  ↵ to type a value", Style::default().fg(th.dim)),
             Line::from(""),
         ]),
         rows[0],
     );
 
     let bar_w = (area.width as usize).saturating_sub(24).clamp(8, 44);
-    let items: Vec<ListItem> = app
-        .dpi_edit
+    let items: Vec<ListItem> = s
+        .dpi
+        .presets
         .iter()
         .enumerate()
         .map(|(i, &value)| {
@@ -52,9 +53,6 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             ];
             if i == active {
                 spans.push(Span::styled("  active", Style::default().fg(th.accent)));
-            }
-            if app.dpi_changed(i) {
-                spans.push(Span::styled(" *", Style::default().fg(th.err).add_modifier(Modifier::BOLD)));
             }
             ListItem::new(Line::from(spans))
         })

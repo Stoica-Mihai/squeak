@@ -96,13 +96,9 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
             match app.screen() {
                 Screen::Dpi => {
                     spans.push(key(" ↑↓ "));
-                    spans.push(lbl("row  "));
-                    spans.push(key("←→ "));
-                    spans.push(lbl("±50 (⇧±500)  "));
-                    spans.push(key("i "));
-                    spans.push(lbl("type  "));
+                    spans.push(lbl("preset  "));
                     spans.push(key("↵ "));
-                    spans.push(lbl("apply  "));
+                    spans.push(lbl("set value  "));
                 }
                 Screen::Polling => {
                     spans.push(key(" ↑↓ "));
