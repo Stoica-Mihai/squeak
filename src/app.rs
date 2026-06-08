@@ -4,6 +4,7 @@
 //! comes back as an `Update`.
 
 use std::sync::mpsc::Sender;
+use std::time::Instant;
 
 use crate::event::Action;
 use crate::proto::Variant;
@@ -161,12 +162,13 @@ pub enum Modal {
     ConfirmReset,
     ButtonPicker(Picker),
     MacroText,
+    Help,
 }
 
 /// Connection state to the device.
 pub enum Conn {
     Connecting,
-    Up { name: String, variant: Variant },
+    Up { name: String, variant: Variant, firmware: String },
     Down(String),
 }
 
@@ -190,6 +192,7 @@ pub struct App {
     pub status: Status,
     pub conn: Conn,
     pub settings: Option<Settings>,
+    pub last_update: Option<Instant>,
     pub focus: Focus,
 
     // DPI editor
@@ -232,6 +235,7 @@ impl App {
             },
             conn: Conn::Connecting,
             settings: None,
+            last_update: None,
             focus: Focus::Sidebar,
             dpi_cursor: 0,
             dpi_edit: [0; NUM_PRESETS],
@@ -320,6 +324,7 @@ impl App {
                 Focus::Content => self.apply_edit(),
             },
             Action::ResetPrompt => self.modal = Some(Modal::ConfirmReset),
+            Action::Help => self.modal = Some(Modal::Help),
             Action::SetDefault => self.button_action(Cmd::SetButtonDefault, "restoring default…"),
             Action::SetDisable => self.button_action(Cmd::SetButtonDisable, "disabling…"),
             Action::RecordMacro => self.start_macro_for_selected_button(),
@@ -435,6 +440,10 @@ impl App {
             Modal::ButtonPicker(p) => self.update_picker(p, action),
             // Text capture is routed via input_* from the event loop, not here.
             Modal::MacroText => self.modal = Some(Modal::MacroText),
+            Modal::Help => match action {
+                Action::Cancel | Action::Back | Action::Help | Action::Enter => {}
+                _ => self.modal = Some(Modal::Help),
+            },
         }
     }
 
@@ -650,14 +659,14 @@ impl App {
     /// Apply a device update from the worker thread.
     pub fn apply(&mut self, update: Update) {
         match update {
-            Update::Connected { name, variant } => {
+            Update::Connected { name, variant, firmware } => {
                 let warn = if variant == Variant::EightKNordic {
                     ""
                 } else {
                     " (unsupported variant — reads may be wrong)"
                 };
                 self.set_status(format!("connected: {name}{warn}"), StatusLevel::Ok);
-                self.conn = Conn::Up { name, variant };
+                self.conn = Conn::Up { name, variant, firmware };
             }
             Update::Settings(s) => {
                 // Reseed editors from the device unless the user has unsaved edits.
@@ -672,6 +681,7 @@ impl App {
                     self.sensor_edit = seed_sensor(&s);
                 }
                 self.settings = Some(*s);
+                self.last_update = Some(Instant::now());
             }
             Update::Buttons(v) => {
                 self.buttons = v;

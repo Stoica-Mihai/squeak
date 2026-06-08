@@ -6,15 +6,16 @@ mod dpi;
 mod macros;
 mod overview;
 mod polling;
+mod profiles;
 mod sensor;
 mod sidebar;
 
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Flex, Layout, Rect},
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph},
 };
 
 use crate::app::{App, Focus, Modal, PICK_TYPES, PickKind, PickerCol, Screen, StatusLevel};
@@ -49,6 +50,7 @@ fn render_content(f: &mut Frame, area: Rect, app: &App) {
     let border = if focused { th.accent } else { th.border };
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(border))
         .title(format!(" {} ", app.screen().title()));
     let inner = block.inner(area);
@@ -61,13 +63,7 @@ fn render_content(f: &mut Frame, area: Rect, app: &App) {
         Screen::Sensor => sensor::render(f, inner, app),
         Screen::Buttons => buttons::render(f, inner, app),
         Screen::Macros => macros::render(f, inner, app),
-        _ => f.render_widget(
-            Paragraph::new(Line::styled(
-                "not yet wired — coming in a later milestone",
-                Style::default().fg(th.dim),
-            )),
-            inner,
-        ),
+        Screen::Profiles => profiles::render(f, inner, app),
     }
 }
 
@@ -155,8 +151,8 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
     spans.push(lbl("refresh  "));
     spans.push(key("t "));
     spans.push(lbl("theme  "));
-    spans.push(key("X "));
-    spans.push(lbl("reset  "));
+    spans.push(key("? "));
+    spans.push(lbl("help  "));
     spans.push(key("q "));
     spans.push(lbl("quit   "));
     spans.push(Span::styled(
@@ -176,11 +172,7 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
         Modal::ConfirmReset => {
             let area = centered(f.area(), 56, 8);
             f.render_widget(Clear, area);
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(th.err).add_modifier(Modifier::BOLD))
-                .title(" Factory reset ")
-                .style(Style::default().bg(th.bg));
+            let block = modal_block(" Factory reset ".into(), th.err, th);
             let inner = block.inner(area);
             f.render_widget(block, area);
 
@@ -208,11 +200,7 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
         Modal::ButtonPicker(p) => {
             let area = centered(f.area(), 52, 14);
             f.render_widget(Clear, area);
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(th.accent))
-                .title(format!(" Assign button {} ", p.id))
-                .style(Style::default().bg(th.bg));
+            let block = modal_block(format!(" Assign button {} ", p.id), th.accent, th);
             let inner = block.inner(area);
             f.render_widget(block, area);
 
@@ -249,11 +237,7 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
         Modal::MacroText => {
             let area = centered(f.area(), 52, 7);
             f.render_widget(Clear, area);
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(th.accent))
-                .title(" Macro text ")
-                .style(Style::default().bg(th.bg));
+            let block = modal_block(" Macro text ".into(), th.accent, th);
             let inner = block.inner(area);
             f.render_widget(block, area);
 
@@ -269,7 +253,48 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
             ];
             f.render_widget(Paragraph::new(lines), inner);
         }
+        Modal::Help => {
+            let area = centered(f.area(), 50, 16);
+            f.render_widget(Clear, area);
+            let block = modal_block(" Help ".into(), th.accent, th);
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let help = |k: &str, d: &str| {
+                Line::from(vec![
+                    Span::styled(format!("  {k:<10}"), Style::default().fg(th.accent)),
+                    Span::styled(d.to_string(), Style::default().fg(th.fg)),
+                ])
+            };
+            let lines = vec![
+                help("Tab", "move between sidebar and content"),
+                help("↑ ↓", "navigate sections / rows"),
+                help("← →", "adjust value / enter content"),
+                help("Enter", "apply / open picker"),
+                help("Space", "toggle / add macro step"),
+                help("d / x", "button: default / disable"),
+                help("m", "button: record a macro"),
+                help("i", "macro: text input"),
+                help("r", "refresh from device"),
+                help("t", "cycle theme"),
+                help("X", "factory reset"),
+                help("q", "quit"),
+                Line::from(""),
+                Line::styled("  ? or esc to close", Style::default().fg(th.dim)),
+            ];
+            f.render_widget(Paragraph::new(lines), inner);
+        }
     }
+}
+
+/// A rounded, titled, background-filled modal block.
+fn modal_block(title: String, color: Color, th: crate::theme::Theme) -> Block<'static> {
+    Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(color).add_modifier(Modifier::BOLD))
+        .title(title)
+        .style(Style::default().bg(th.bg))
 }
 
 /// One selectable row in the picker.

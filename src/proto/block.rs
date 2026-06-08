@@ -249,6 +249,7 @@ mod tests {
         let s = read_all(&mut dev).expect("read block");
         assert!(s.battery.percent <= 100, "battery {} > 100", s.battery.percent);
         assert!(s.dpi.presets.iter().all(|&p| p <= 26000), "preset out of range: {:?}", s.dpi.presets);
-        eprintln!("live device: {} ({:04x}:{:04x})\n{s:#?}", info.name, info.vid, info.pid);
+        let fw = crate::proto::info::read_version(&mut dev).unwrap_or_else(|_| "?".into());
+        eprintln!("live device: {} ({:04x}:{:04x}) fw {fw}\n{s:#?}", info.name, info.vid, info.pid);
     }
 }

@@ -36,8 +36,9 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         .unwrap_or_else(|| format!("code {}", s.polling.levels[0]));
 
     let mut lines = vec![Line::from("")];
-    if let Conn::Up { name, variant } = &app.conn {
+    if let Conn::Up { name, variant, firmware } = &app.conn {
         lines.push(kv(app, "Device", format!("{name} ({})", variant.label())));
+        lines.push(kv(app, "Firmware", firmware.clone()));
     }
     lines.extend([
         kv(app, "Profile", format!("{} of {}", s.profile.current, s.profile.count)),
@@ -52,6 +53,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         kv(app, "Debounce", format!("{} ms", s.debounce.value)),
         kv(app, "Sleep", format!("{} s", s.sleep_s)),
     ]);
+    if let Some(t) = app.last_update {
+        lines.push(Line::from(""));
+        lines.push(Line::styled(
+            format!("  refreshed {}s ago", t.elapsed().as_secs()),
+            Style::default().fg(th.dim),
+        ));
+    }
     f.render_widget(Paragraph::new(lines), rows[1]);
 }
 

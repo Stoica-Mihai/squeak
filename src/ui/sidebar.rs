@@ -1,41 +1,77 @@
-//! Left nav: section list with the active section highlighted. The border and
-//! selection brighten when the sidebar holds focus.
+//! Left nav: rounded box with the section list on top and a device-status block
+//! at the bottom (connection dot, name, battery). Border/selection brighten when
+//! the sidebar holds focus.
 
 use ratatui::{
     Frame,
-    layout::Rect,
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
-    text::Line,
-    widgets::{Block, Borders, List, ListItem, ListState},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
 };
 
-use crate::app::{App, Screen};
+use crate::app::{App, Conn, Screen};
 
 pub fn render(f: &mut Frame, area: Rect, app: &App, focused: bool) {
     let th = app.theme();
     let border = if focused { th.accent } else { th.border };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(border))
+        .title(" squeak ")
+        .style(Style::default().bg(th.bg));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(2)])
+        .split(inner);
+
     let items: Vec<ListItem> = Screen::ALL
         .iter()
         .map(|s| ListItem::new(Line::raw(format!(" {}", s.title()))))
         .collect();
-
     let mut sel = Style::default().fg(th.sel_fg).bg(th.sel_bg);
     if focused {
         sel = sel.add_modifier(Modifier::BOLD);
     }
-
     let list = List::new(items)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(border))
-                .title(" squeak "),
-        )
-        .style(Style::default().fg(th.fg).bg(th.bg))
+        .style(Style::default().fg(th.fg))
         .highlight_style(sel)
         .highlight_symbol(if focused { "▌" } else { " " });
-
     let mut state = ListState::default();
     state.select(Some(app.screen_idx));
-    f.render_stateful_widget(list, area, &mut state);
+    f.render_stateful_widget(list, rows[0], &mut state);
+
+    f.render_widget(Paragraph::new(status_lines(app)), rows[1]);
+}
+
+fn status_lines(app: &App) -> Vec<Line<'static>> {
+    let th = app.theme();
+    let (dot, dot_color, label) = match &app.conn {
+        Conn::Connecting => ("…", th.dim, "connecting".to_string()),
+        Conn::Up { name, .. } => ("●", th.ok, short_name(name)),
+        Conn::Down(_) => ("○", th.err, "offline".to_string()),
+    };
+    let mut top = vec![
+        Span::styled(format!(" {dot} "), Style::default().fg(dot_color)),
+        Span::styled(label, Style::default().fg(th.dim)),
+    ];
+    if let Some(s) = &app.settings {
+        let charge = if s.battery.charging { " ⚡" } else { "" };
+        top.push(Span::raw("  "));
+        top.push(Span::styled(
+            format!("{}%{charge}", s.battery.percent.min(100)),
+            Style::default().fg(th.ok),
+        ));
+    }
+    vec![Line::from(top)]
+}
+
+/// Trim a long product string to fit the narrow sidebar.
+fn short_name(name: &str) -> String {
+    name.rsplit(' ').take(2).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join(" ")
 }

@@ -35,6 +35,8 @@ pub enum Action {
     Add,
     Remove,
     TextInput,
+    /// Toggle the help overlay.
+    Help,
 }
 
 pub fn map_key(key: KeyEvent) -> Action {
@@ -60,6 +62,7 @@ pub fn map_key(key: KeyEvent) -> Action {
         KeyCode::Char('+') => Action::Add,
         KeyCode::Backspace | KeyCode::Delete => Action::Remove,
         KeyCode::Char('i') => Action::TextInput,
+        KeyCode::Char('?') => Action::Help,
         KeyCode::Char('t') => Action::CycleTheme,
         KeyCode::Char('r') => Action::Refresh,
         _ => Action::None,

@@ -9,7 +9,7 @@ use crate::hid::{Device, DeviceInfo, find_config};
 use crate::proto::block::{self, Settings};
 use crate::proto::buttons::{self, ButtonInfo};
 use crate::proto::sensor::SensorFields;
-use crate::proto::{self, Variant, dpi, macros, polling, sensor, system};
+use crate::proto::{self, Variant, dpi, info, macros, polling, sensor, system};
 
 pub enum Cmd {
     ReadAll,
@@ -29,7 +29,7 @@ pub enum Cmd {
 }
 
 pub enum Update {
-    Connected { name: String, variant: Variant },
+    Connected { name: String, variant: Variant, firmware: String },
     Settings(Box<Settings>),
     Buttons(Vec<ButtonInfo>),
     /// Result of a write, after read-back. Drives the ✓/✗ status line.
@@ -176,14 +176,15 @@ fn send(tx: &Sender<Update>, u: Update) -> bool {
 /// Connect, announcing it. Err(true) = channel closed (stop); Err(false) = retry later.
 fn ensure_connected(tx: &Sender<Update>) -> Result<Device, bool> {
     match connect() {
-        Ok((info, d)) => {
-            let variant = proto::detect(info.usage_page);
-            let name = if info.name.is_empty() {
-                format!("Keychron {:04x}:{:04x}", info.vid, info.pid)
+        Ok((di, mut d)) => {
+            let variant = proto::detect(di.usage_page);
+            let name = if di.name.is_empty() {
+                format!("Keychron {:04x}:{:04x}", di.vid, di.pid)
             } else {
-                info.name
+                di.name
             };
-            if send(tx, Update::Connected { name, variant }) {
+            let firmware = info::read_version(&mut d).unwrap_or_else(|_| "?".into());
+            if send(tx, Update::Connected { name, variant, firmware }) {
                 return Err(true);
             }
             Ok(d)
