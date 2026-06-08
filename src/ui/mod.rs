@@ -1,6 +1,7 @@
 //! Frame layout: sidebar | content, with a one-line footer (keybinds + status).
-//! Per-section content widgets land here in M1+; M0 draws a placeholder pane.
+//! Overview is wired (M1); other sections are placeholders pending M2+.
 
+mod overview;
 mod sidebar;
 
 use ratatui::{
@@ -11,7 +12,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::app::{App, StatusLevel};
+use crate::app::{App, Screen, StatusLevel};
 
 pub fn render(f: &mut Frame, app: &App) {
     let th = app.theme();
@@ -33,17 +34,23 @@ pub fn render(f: &mut Frame, app: &App) {
 }
 
 fn render_content(f: &mut Frame, area: Rect, app: &App) {
+    match app.screen() {
+        Screen::Overview => overview::render(f, area, app),
+        other => render_placeholder(f, area, app, other),
+    }
+}
+
+fn render_placeholder(f: &mut Frame, area: Rect, app: &App, screen: Screen) {
     let th = app.theme();
-    let title = format!(" {} ", app.screen().title());
     let body = Paragraph::new(Line::styled(
-        "not yet wired — M0 skeleton",
+        "not yet wired — coming in a later milestone",
         Style::default().fg(th.dim),
     ))
     .block(
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(th.border))
-            .title(title),
+            .title(format!(" {} ", screen.title())),
     )
     .style(Style::default().fg(th.fg).bg(th.bg));
     f.render_widget(body, area);
@@ -57,16 +64,21 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
         StatusLevel::Err => th.err,
     };
 
+    let key = |k: &'static str| {
+        Span::styled(k, Style::default().fg(th.accent).add_modifier(Modifier::BOLD))
+    };
+    let lbl = |t: &'static str| Span::styled(t, Style::default().fg(th.dim));
+
     let line = Line::from(vec![
-        Span::styled(" ↑↓ ", Style::default().fg(th.accent).add_modifier(Modifier::BOLD)),
-        Span::styled("nav  ", Style::default().fg(th.dim)),
-        Span::styled("r ", Style::default().fg(th.accent).add_modifier(Modifier::BOLD)),
-        Span::styled("refresh  ", Style::default().fg(th.dim)),
-        Span::styled("t ", Style::default().fg(th.accent).add_modifier(Modifier::BOLD)),
-        Span::styled("theme  ", Style::default().fg(th.dim)),
-        Span::styled("q ", Style::default().fg(th.accent).add_modifier(Modifier::BOLD)),
-        Span::styled("quit   ", Style::default().fg(th.dim)),
-        Span::styled(&app.status.text, Style::default().fg(status_color)),
+        key(" ↑↓ "),
+        lbl("nav  "),
+        key("r "),
+        lbl("refresh  "),
+        key("t "),
+        lbl("theme  "),
+        key("q "),
+        lbl("quit   "),
+        Span::styled(app.status.text.clone(), Style::default().fg(status_color)),
     ]);
     f.render_widget(Paragraph::new(line).style(Style::default().bg(th.bg)), area);
 }

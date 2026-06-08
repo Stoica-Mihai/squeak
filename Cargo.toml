@@ -15,6 +15,8 @@ path = "src/main.rs"
 ratatui = "0.29"
 anyhow = "1"
 thiserror = "2"
+# poll() for timeout reads on hidraw; pure-Rust, keeps the static-binary goal.
+rustix = { version = "0.38", features = ["event"] }
 
 # rust-poc/ is a separate throwaway crate; keep it out of this package.
 [workspace]
