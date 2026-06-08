@@ -4,6 +4,8 @@
 pub mod block;
 pub mod dpi;
 pub mod polling;
+pub mod sensor;
+pub mod system;
 
 use crate::hid::enumerate::USAGE_PAGE_CONFIG;
 

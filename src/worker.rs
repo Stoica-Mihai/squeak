@@ -7,12 +7,18 @@ use std::thread::{self, JoinHandle};
 
 use crate::hid::{Device, DeviceInfo, find_config};
 use crate::proto::block::{self, Settings};
-use crate::proto::{self, Variant, dpi, polling};
+use crate::proto::sensor::SensorFields;
+use crate::proto::{self, Variant, dpi, polling, sensor, system};
 
 pub enum Cmd {
     ReadAll,
     SetDpi { index: usize, value: u16 },
     SetRate { hz: u32 },
+    SetSensor(SensorFields),
+    SetAngle { degrees: u8, enable: bool },
+    SetDebounce(u8),
+    SetSleep(u8),
+    FactoryReset,
     Shutdown,
 }
 
@@ -90,6 +96,36 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
             Cmd::SetRate { hz } => {
                 let result = polling::set_rate(dev.as_mut().unwrap(), hz)
                     .map(|_| format!("polling → {hz} Hz ✓ verified"));
+                report_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetSensor(fields) => {
+                let result = sensor::set_sensor(dev.as_mut().unwrap(), fields)
+                    .map(|_| "sensor ✓ verified".to_string());
+                report_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetAngle { degrees, enable } => {
+                let result = sensor::set_angle(dev.as_mut().unwrap(), degrees, enable).map(|a| {
+                    if enable {
+                        format!("angle snap → {a}° ✓ verified")
+                    } else {
+                        "angle snap off ✓ verified".to_string()
+                    }
+                });
+                report_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetDebounce(ms) => {
+                let result = system::set_debounce(dev.as_mut().unwrap(), ms)
+                    .map(|v| format!("debounce → {v} ms ✓ verified"));
+                report_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetSleep(secs) => {
+                let result = system::set_sleep(dev.as_mut().unwrap(), secs)
+                    .map(|v| format!("sleep → {v} s ✓ verified"));
+                report_write(&update_tx, &mut dev, result)
+            }
+            Cmd::FactoryReset => {
+                let result = system::factory_reset(dev.as_mut().unwrap())
+                    .map(|_| "factory reset sent".to_string());
                 report_write(&update_tx, &mut dev, result)
             }
         };

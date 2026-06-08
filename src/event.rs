@@ -20,6 +20,13 @@ pub enum Action {
     Horizontal(i32),
     /// Enter. Sidebar: focus content. Content: apply edit.
     Enter,
+    /// Space: toggle the focused boolean row.
+    Toggle,
+    /// Open the factory-reset confirm modal.
+    ResetPrompt,
+    /// Modal: confirm / cancel.
+    Confirm,
+    Cancel,
 }
 
 pub fn map_key(key: KeyEvent) -> Action {
@@ -35,6 +42,10 @@ pub fn map_key(key: KeyEvent) -> Action {
         KeyCode::Left | KeyCode::Char('h') => Action::Horizontal(-step),
         KeyCode::Right | KeyCode::Char('l') => Action::Horizontal(step),
         KeyCode::Enter => Action::Enter,
+        KeyCode::Char(' ') => Action::Toggle,
+        KeyCode::Char('X') => Action::ResetPrompt,
+        KeyCode::Char('y') => Action::Confirm,
+        KeyCode::Char('n') => Action::Cancel,
         KeyCode::Char('t') => Action::CycleTheme,
         KeyCode::Char('r') => Action::Refresh,
         _ => Action::None,

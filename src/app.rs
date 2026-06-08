@@ -10,8 +10,16 @@ use crate::proto::Variant;
 use crate::proto::block::Settings;
 use crate::proto::dpi::{DPI_MAX, DPI_MIN, NUM_PRESETS};
 use crate::proto::polling::RATES_HZ;
+use crate::proto::sensor::SensorFields;
 use crate::theme::{self, Theme};
 use crate::worker::{Cmd, Update};
+
+const LOD_MAX: u8 = 2;
+const ANGLE_MAX: u8 = 90;
+const ANGLE_STEP: u8 = 5;
+const DEBOUNCE_MAX: u8 = 30;
+const SLEEP_MAX: u8 = 250;
+const SLEEP_STEP: u8 = 10;
 
 /// Left-sidebar sections. Order = display order.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -50,7 +58,7 @@ impl Screen {
 
     /// Whether the content pane accepts focus / editing (others are read-only).
     pub fn interactive(self) -> bool {
-        matches!(self, Screen::Dpi | Screen::Polling)
+        matches!(self, Screen::Dpi | Screen::Polling | Screen::Sensor)
     }
 }
 
@@ -59,6 +67,64 @@ impl Screen {
 pub enum Focus {
     Sidebar,
     Content,
+}
+
+/// Editable rows on the Sensor screen.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SensorRow {
+    Lod,
+    ScrollDir,
+    Motion,
+    Angle,
+    Ripple,
+    Sampling,
+    Debounce,
+    Sleep,
+}
+
+impl SensorRow {
+    pub const ALL: [SensorRow; 8] = [
+        SensorRow::Lod,
+        SensorRow::ScrollDir,
+        SensorRow::Motion,
+        SensorRow::Angle,
+        SensorRow::Ripple,
+        SensorRow::Sampling,
+        SensorRow::Debounce,
+        SensorRow::Sleep,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SensorRow::Lod => "Lift-off distance",
+            SensorRow::ScrollDir => "Scroll direction",
+            SensorRow::Motion => "Motion sync",
+            SensorRow::Angle => "Angle snapping",
+            SensorRow::Ripple => "Ripple control",
+            SensorRow::Sampling => "Sampling mode",
+            SensorRow::Debounce => "Debounce",
+            SensorRow::Sleep => "Sleep",
+        }
+    }
+}
+
+/// Working copy of the Sensor screen values (seeded from the device snapshot).
+#[derive(Clone, Copy, Default)]
+pub struct SensorEdit {
+    pub lod: u8,
+    pub scroll_dir: u8,
+    pub motion: u8,
+    pub wave: u8,
+    pub fps20k: u8,
+    pub angle_on: bool,
+    pub angle_deg: u8,
+    pub debounce: u8,
+    pub sleep: u8,
+}
+
+/// Active modal overlay.
+pub enum Modal {
+    ConfirmReset,
 }
 
 /// Connection state to the device.
@@ -98,6 +164,13 @@ pub struct App {
     // Polling editor (index into RATES_HZ)
     pub poll_sel: usize,
 
+    // Sensor editor
+    pub sensor_cursor: usize,
+    pub sensor_edit: SensorEdit,
+    pub sensor_dirty: bool,
+
+    pub modal: Option<Modal>,
+
     cmd_tx: Sender<Cmd>,
 }
 
@@ -118,6 +191,10 @@ impl App {
             dpi_edit: [0; NUM_PRESETS],
             dpi_dirty: false,
             poll_sel: 0,
+            sensor_cursor: 0,
+            sensor_edit: SensorEdit::default(),
+            sensor_dirty: false,
+            modal: None,
             cmd_tx,
         }
     }
@@ -143,6 +220,10 @@ impl App {
     }
 
     pub fn update(&mut self, action: Action) {
+        if self.modal.is_some() {
+            self.update_modal(action);
+            return;
+        }
         match action {
             Action::Quit => self.running = false,
             Action::CycleTheme => {
@@ -167,11 +248,30 @@ impl App {
                 }
                 Focus::Content => self.adjust(d),
             },
+            Action::Toggle => {
+                if self.focus == Focus::Content {
+                    self.toggle_row();
+                }
+            }
             Action::Enter => match self.focus {
                 Focus::Sidebar => self.enter_content(),
                 Focus::Content => self.apply_edit(),
             },
-            Action::None => {}
+            Action::ResetPrompt => self.modal = Some(Modal::ConfirmReset),
+            Action::Confirm | Action::Cancel | Action::None => {}
+        }
+    }
+
+    fn update_modal(&mut self, action: Action) {
+        match action {
+            Action::Confirm | Action::Enter => {
+                let _ = self.cmd_tx.send(Cmd::FactoryReset);
+                self.set_status("factory reset…".into(), StatusLevel::Info);
+                self.modal = None;
+            }
+            Action::Cancel | Action::Back => self.modal = None,
+            Action::Quit => self.running = false,
+            _ => {}
         }
     }
 
@@ -201,18 +301,58 @@ impl App {
             Screen::Polling => {
                 self.poll_sel = clamp_idx(self.poll_sel, delta, RATES_HZ.len());
             }
+            Screen::Sensor => {
+                self.sensor_cursor = clamp_idx(self.sensor_cursor, delta, SensorRow::ALL.len());
+            }
             _ => {}
         }
     }
 
     fn adjust(&mut self, delta: i32) {
-        if self.screen() != Screen::Dpi {
+        match self.screen() {
+            Screen::Dpi => {
+                let v = (self.dpi_edit[self.dpi_cursor] as i32 + delta)
+                    .clamp(DPI_MIN as i32, DPI_MAX as i32) as u16;
+                self.dpi_edit[self.dpi_cursor] = v;
+                self.dpi_dirty = true;
+            }
+            Screen::Sensor => self.adjust_sensor(delta.signum()),
+            _ => {}
+        }
+    }
+
+    fn adjust_sensor(&mut self, dir: i32) {
+        let e = &mut self.sensor_edit;
+        match SensorRow::ALL[self.sensor_cursor] {
+            SensorRow::Lod => e.lod = step_clamp(e.lod, dir, 0, LOD_MAX, 1),
+            SensorRow::ScrollDir => e.scroll_dir ^= 1,
+            SensorRow::Motion => e.motion ^= 1,
+            SensorRow::Ripple => e.wave ^= 1,
+            SensorRow::Sampling => e.fps20k ^= 1,
+            SensorRow::Angle => {
+                e.angle_deg = step_clamp(e.angle_deg, dir, 0, ANGLE_MAX, ANGLE_STEP);
+                e.angle_on = e.angle_deg > 0;
+            }
+            SensorRow::Debounce => e.debounce = step_clamp(e.debounce, dir, 0, DEBOUNCE_MAX, 1),
+            SensorRow::Sleep => e.sleep = step_clamp(e.sleep, dir, 0, SLEEP_MAX, SLEEP_STEP),
+        }
+        self.sensor_dirty = true;
+    }
+
+    fn toggle_row(&mut self) {
+        if self.screen() != Screen::Sensor {
             return;
         }
-        let v = (self.dpi_edit[self.dpi_cursor] as i32 + delta)
-            .clamp(DPI_MIN as i32, DPI_MAX as i32) as u16;
-        self.dpi_edit[self.dpi_cursor] = v;
-        self.dpi_dirty = true;
+        let e = &mut self.sensor_edit;
+        match SensorRow::ALL[self.sensor_cursor] {
+            SensorRow::ScrollDir => e.scroll_dir ^= 1,
+            SensorRow::Motion => e.motion ^= 1,
+            SensorRow::Ripple => e.wave ^= 1,
+            SensorRow::Sampling => e.fps20k ^= 1,
+            SensorRow::Angle => e.angle_on = !e.angle_on,
+            _ => return,
+        }
+        self.sensor_dirty = true;
     }
 
     fn apply_edit(&mut self) {
@@ -230,8 +370,33 @@ impl App {
                 });
                 self.set_status("applying polling rate…".into(), StatusLevel::Info);
             }
+            Screen::Sensor => self.apply_sensor_row(),
             _ => {}
         }
+    }
+
+    fn apply_sensor_row(&mut self) {
+        let e = self.sensor_edit;
+        let cmd = match SensorRow::ALL[self.sensor_cursor] {
+            SensorRow::Lod => Cmd::SetSensor(SensorFields { lod: Some(e.lod), ..Default::default() }),
+            SensorRow::ScrollDir => {
+                Cmd::SetSensor(SensorFields { scroll_dir: Some(e.scroll_dir), ..Default::default() })
+            }
+            SensorRow::Motion => {
+                Cmd::SetSensor(SensorFields { motion: Some(e.motion), ..Default::default() })
+            }
+            SensorRow::Ripple => {
+                Cmd::SetSensor(SensorFields { wave: Some(e.wave), ..Default::default() })
+            }
+            SensorRow::Sampling => {
+                Cmd::SetSensor(SensorFields { fps20k: Some(e.fps20k), ..Default::default() })
+            }
+            SensorRow::Angle => Cmd::SetAngle { degrees: e.angle_deg, enable: e.angle_on },
+            SensorRow::Debounce => Cmd::SetDebounce(e.debounce),
+            SensorRow::Sleep => Cmd::SetSleep(e.sleep),
+        };
+        let _ = self.cmd_tx.send(cmd);
+        self.set_status("applying…".into(), StatusLevel::Info);
     }
 
     /// Apply a device update from the worker thread.
@@ -255,12 +420,17 @@ impl App {
                 if code < RATES_HZ.len() {
                     self.poll_sel = code;
                 }
+                if !self.sensor_dirty {
+                    self.sensor_edit = seed_sensor(&s);
+                }
                 self.settings = Some(*s);
             }
             Update::Written { ok, msg } => {
                 self.set_status(msg, if ok { StatusLevel::Ok } else { StatusLevel::Err });
                 if ok {
-                    self.dpi_dirty = false; // next Settings reseeds the editor
+                    // next Settings reseeds the editors
+                    self.dpi_dirty = false;
+                    self.sensor_dirty = false;
                 }
             }
             Update::Error(e) => {
@@ -282,6 +452,26 @@ impl App {
 /// Move an index by `delta`, clamped to `0..len`.
 fn clamp_idx(cur: usize, delta: i32, len: usize) -> usize {
     (cur as i32 + delta).clamp(0, len as i32 - 1) as usize
+}
+
+/// Step a value by `dir * step`, clamped to `min..=max`.
+fn step_clamp(cur: u8, dir: i32, min: u8, max: u8, step: u8) -> u8 {
+    (cur as i32 + dir.signum() * step as i32).clamp(min as i32, max as i32) as u8
+}
+
+/// Seed the Sensor editor from a device snapshot.
+fn seed_sensor(s: &Settings) -> SensorEdit {
+    SensorEdit {
+        lod: s.sensor.lod,
+        scroll_dir: s.sensor.scroll_dir,
+        motion: s.sensor.motion_sync,
+        wave: s.sensor.wave,
+        fps20k: s.sensor.fps20k,
+        angle_on: s.sensor.angle != 0,
+        angle_deg: s.sensor.angle.unsigned_abs().min(ANGLE_MAX as u16) as u8,
+        debounce: s.debounce.value,
+        sleep: s.sleep_s,
+    }
 }
 
 #[cfg(test)]

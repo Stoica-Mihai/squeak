@@ -4,17 +4,18 @@
 mod dpi;
 mod overview;
 mod polling;
+mod sensor;
 mod sidebar;
 
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Flex, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 
-use crate::app::{App, Focus, Screen, StatusLevel};
+use crate::app::{App, Focus, Modal, Screen, StatusLevel};
 
 pub fn render(f: &mut Frame, app: &App) {
     let th = app.theme();
@@ -33,6 +34,10 @@ pub fn render(f: &mut Frame, app: &App) {
     sidebar::render(f, cols[0], app, app.focus == Focus::Sidebar);
     render_content(f, cols[1], app);
     render_footer(f, rows[1], app);
+
+    if let Some(modal) = &app.modal {
+        render_modal(f, app, modal);
+    }
 }
 
 fn render_content(f: &mut Frame, area: Rect, app: &App) {
@@ -50,6 +55,7 @@ fn render_content(f: &mut Frame, area: Rect, app: &App) {
         Screen::Overview => overview::render(f, inner, app),
         Screen::Dpi => dpi::render(f, inner, app),
         Screen::Polling => polling::render(f, inner, app),
+        Screen::Sensor => sensor::render(f, inner, app),
         _ => f.render_widget(
             Paragraph::new(Line::styled(
                 "not yet wired — coming in a later milestone",
@@ -102,6 +108,16 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
                     spans.push(key("↵ "));
                     spans.push(lbl("apply  "));
                 }
+                Screen::Sensor => {
+                    spans.push(key(" ↑↓ "));
+                    spans.push(lbl("row  "));
+                    spans.push(key("←→ "));
+                    spans.push(lbl("change  "));
+                    spans.push(key("␣ "));
+                    spans.push(lbl("toggle  "));
+                    spans.push(key("↵ "));
+                    spans.push(lbl("apply  "));
+                }
                 _ => {}
             }
             spans.push(key("⇥ "));
@@ -112,6 +128,8 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
     spans.push(lbl("refresh  "));
     spans.push(key("t "));
     spans.push(lbl("theme  "));
+    spans.push(key("X "));
+    spans.push(lbl("reset  "));
     spans.push(key("q "));
     spans.push(lbl("quit   "));
     spans.push(Span::styled(
@@ -123,4 +141,52 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
         Paragraph::new(Line::from(spans)).style(Style::default().bg(th.bg)),
         area,
     );
+}
+
+fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
+    let th = app.theme();
+    match modal {
+        Modal::ConfirmReset => {
+            let area = centered(f.area(), 56, 8);
+            f.render_widget(Clear, area);
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(th.err).add_modifier(Modifier::BOLD))
+                .title(" Factory reset ")
+                .style(Style::default().bg(th.bg));
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let lines = vec![
+                Line::from(""),
+                Line::styled(
+                    "  Reset ALL settings to factory defaults?",
+                    Style::default().fg(th.fg).add_modifier(Modifier::BOLD),
+                ),
+                Line::styled(
+                    "  DPI, polling, sensor, buttons and macros.",
+                    Style::default().fg(th.dim),
+                ),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("   "),
+                    Span::styled("y", Style::default().fg(th.err).add_modifier(Modifier::BOLD)),
+                    Span::styled(" confirm     ", Style::default().fg(th.dim)),
+                    Span::styled("n/Esc", Style::default().fg(th.accent).add_modifier(Modifier::BOLD)),
+                    Span::styled(" cancel", Style::default().fg(th.dim)),
+                ]),
+            ];
+            f.render_widget(Paragraph::new(lines), inner);
+        }
+    }
+}
+
+/// Center a `w`×`h` rect within `area`.
+fn centered(area: Rect, w: u16, h: u16) -> Rect {
+    let v = Layout::vertical([Constraint::Length(h)])
+        .flex(Flex::Center)
+        .split(area);
+    Layout::horizontal([Constraint::Length(w)])
+        .flex(Flex::Center)
+        .split(v[0])[0]
 }
