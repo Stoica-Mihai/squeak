@@ -9,7 +9,7 @@ use crate::hid::{Device, DeviceInfo, find_config};
 use crate::proto::block::{self, Settings};
 use crate::proto::buttons::{self, ButtonInfo};
 use crate::proto::sensor::SensorFields;
-use crate::proto::{self, Variant, dpi, polling, sensor, system};
+use crate::proto::{self, Variant, dpi, macros, polling, sensor, system};
 
 pub enum Cmd {
     ReadAll,
@@ -23,6 +23,7 @@ pub enum Cmd {
     SetButtonMouse { id: u8, action: String },
     SetButtonDisable(u8),
     SetButtonDefault(u8),
+    SetMacro { id: u8, events: Vec<u8> },
     FactoryReset,
     Shutdown,
 }
@@ -154,6 +155,11 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
             Cmd::SetButtonDefault(id) => {
                 let result = buttons::restore_default(dev.as_mut().unwrap(), id)
                     .map(|b| format!("button {id} → {} ✓ verified", b.label));
+                report_button_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetMacro { id, events } => {
+                let result = macros::set_macro(dev.as_mut().unwrap(), id, &events)
+                    .map(|b| format!("macro → button {id} ✓ verified (len {})", b.data));
                 report_button_write(&update_tx, &mut dev, result)
             }
         };

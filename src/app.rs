@@ -10,6 +10,7 @@ use crate::proto::Variant;
 use crate::proto::block::Settings;
 use crate::proto::buttons::{ButtonInfo, MOUSE_ACTIONS};
 use crate::proto::dpi::{DPI_MAX, DPI_MIN, NUM_PRESETS};
+use crate::proto::macros::{self, MOUSE_PALETTE};
 use crate::proto::polling::RATES_HZ;
 use crate::proto::sensor::SensorFields;
 use crate::theme::{self, Theme};
@@ -59,7 +60,10 @@ impl Screen {
 
     /// Whether the content pane accepts focus / editing (others are read-only).
     pub fn interactive(self) -> bool {
-        matches!(self, Screen::Dpi | Screen::Polling | Screen::Sensor | Screen::Buttons)
+        matches!(
+            self,
+            Screen::Dpi | Screen::Polling | Screen::Sensor | Screen::Buttons | Screen::Macros
+        )
     }
 }
 
@@ -156,6 +160,7 @@ pub struct Picker {
 pub enum Modal {
     ConfirmReset,
     ButtonPicker(Picker),
+    MacroText,
 }
 
 /// Connection state to the device.
@@ -204,6 +209,12 @@ pub struct App {
     pub buttons: Vec<ButtonInfo>,
     pub button_cursor: usize,
 
+    // Macros (bound to macro_target button)
+    pub macro_target: Option<u8>,
+    pub macro_palette: usize,
+    pub macro_seq: Vec<u8>,
+    pub text_buf: String,
+
     pub modal: Option<Modal>,
 
     cmd_tx: Sender<Cmd>,
@@ -231,6 +242,10 @@ impl App {
             sensor_dirty: false,
             buttons: Vec::new(),
             button_cursor: 0,
+            macro_target: None,
+            macro_palette: 0,
+            macro_seq: Vec::new(),
+            text_buf: String::new(),
             modal: None,
             cmd_tx,
         }
@@ -294,7 +309,10 @@ impl App {
             },
             Action::Toggle => {
                 if self.focus == Focus::Content {
-                    self.toggle_row();
+                    match self.screen() {
+                        Screen::Macros => self.macro_add(),
+                        _ => self.toggle_row(),
+                    }
                 }
             }
             Action::Enter => match self.focus {
@@ -304,12 +322,72 @@ impl App {
             Action::ResetPrompt => self.modal = Some(Modal::ConfirmReset),
             Action::SetDefault => self.button_action(Cmd::SetButtonDefault, "restoring default…"),
             Action::SetDisable => self.button_action(Cmd::SetButtonDisable, "disabling…"),
-            Action::RecordMacro => {
-                if self.on_buttons_content() {
-                    self.set_status("macros: coming in M5".into(), StatusLevel::Info);
+            Action::RecordMacro => self.start_macro_for_selected_button(),
+            Action::Add => self.macro_add(),
+            Action::Remove => self.macro_remove(),
+            Action::TextInput => {
+                if self.screen() == Screen::Macros && self.macro_target.is_some() {
+                    self.text_buf.clear();
+                    self.modal = Some(Modal::MacroText);
                 }
             }
             Action::Confirm | Action::Cancel | Action::None => {}
+        }
+    }
+
+    /// `m` on a button: target it and jump to the Macros screen.
+    fn start_macro_for_selected_button(&mut self) {
+        if !self.on_buttons_content() {
+            return;
+        }
+        self.macro_target = Some(self.buttons[self.button_cursor].id);
+        self.macro_seq.clear();
+        self.screen_idx = Screen::ALL.iter().position(|s| *s == Screen::Macros).unwrap();
+        self.focus = Focus::Content;
+        self.set_status("recording macro — add clicks or i for text".into(), StatusLevel::Info);
+    }
+
+    fn macro_add(&mut self) {
+        if self.screen() == Screen::Macros && self.macro_target.is_some() {
+            self.macro_seq.push(MOUSE_PALETTE[self.macro_palette].1);
+        }
+    }
+
+    fn macro_remove(&mut self) {
+        if self.screen() == Screen::Macros {
+            self.macro_seq.pop();
+        }
+    }
+
+    // Text-input modal (macro text) — char capture routed from the event loop.
+    pub fn capturing_text(&self) -> bool {
+        matches!(self.modal, Some(Modal::MacroText))
+    }
+
+    pub fn input_char(&mut self, c: char) {
+        if !c.is_control() {
+            self.text_buf.push(c);
+        }
+    }
+
+    pub fn input_backspace(&mut self) {
+        self.text_buf.pop();
+    }
+
+    pub fn input_cancel(&mut self) {
+        self.modal = None;
+    }
+
+    pub fn input_commit(&mut self) {
+        self.modal = None;
+        let Some(id) = self.macro_target else { return };
+        match macros::text_events(&self.text_buf) {
+            Ok(events) if !events.is_empty() => {
+                let _ = self.cmd_tx.send(Cmd::SetMacro { id, events });
+                self.set_status("uploading text macro…".into(), StatusLevel::Info);
+            }
+            Ok(_) => self.set_status("empty macro — nothing sent".into(), StatusLevel::Info),
+            Err(e) => self.set_status(e.to_string(), StatusLevel::Err),
         }
     }
 
@@ -355,6 +433,8 @@ impl App {
                 _ => self.modal = Some(Modal::ConfirmReset), // keep open on stray keys
             },
             Modal::ButtonPicker(p) => self.update_picker(p, action),
+            // Text capture is routed via input_* from the event loop, not here.
+            Modal::MacroText => self.modal = Some(Modal::MacroText),
         }
     }
 
@@ -453,6 +533,9 @@ impl App {
             Screen::Buttons if !self.buttons.is_empty() => {
                 self.button_cursor = clamp_idx(self.button_cursor, delta, self.buttons.len());
             }
+            Screen::Macros => {
+                self.macro_palette = clamp_idx(self.macro_palette, delta, MOUSE_PALETTE.len());
+            }
             _ => {}
         }
     }
@@ -521,8 +604,23 @@ impl App {
             }
             Screen::Sensor => self.apply_sensor_row(),
             Screen::Buttons => self.open_button_picker(),
+            Screen::Macros => self.upload_click_macro(),
             _ => {}
         }
+    }
+
+    fn upload_click_macro(&mut self) {
+        let Some(id) = self.macro_target else {
+            self.set_status("no target — press m on a button first".into(), StatusLevel::Info);
+            return;
+        };
+        if self.macro_seq.is_empty() {
+            self.set_status("macro empty — add clicks or press i for text".into(), StatusLevel::Info);
+            return;
+        }
+        let events = macros::click_events(&self.macro_seq);
+        let _ = self.cmd_tx.send(Cmd::SetMacro { id, events });
+        self.set_status("uploading macro…".into(), StatusLevel::Info);
     }
 
     fn apply_sensor_row(&mut self) {

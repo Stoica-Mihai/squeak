@@ -3,6 +3,7 @@
 
 mod buttons;
 mod dpi;
+mod macros;
 mod overview;
 mod polling;
 mod sensor;
@@ -59,6 +60,7 @@ fn render_content(f: &mut Frame, area: Rect, app: &App) {
         Screen::Polling => polling::render(f, inner, app),
         Screen::Sensor => sensor::render(f, inner, app),
         Screen::Buttons => buttons::render(f, inner, app),
+        Screen::Macros => macros::render(f, inner, app),
         _ => f.render_widget(
             Paragraph::new(Line::styled(
                 "not yet wired — coming in a later milestone",
@@ -130,6 +132,18 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
                     spans.push(lbl("default  "));
                     spans.push(key("x "));
                     spans.push(lbl("disable  "));
+                    spans.push(key("m "));
+                    spans.push(lbl("macro  "));
+                }
+                Screen::Macros => {
+                    spans.push(key(" ↑↓ "));
+                    spans.push(lbl("click  "));
+                    spans.push(key("+ "));
+                    spans.push(lbl("add  "));
+                    spans.push(key("i "));
+                    spans.push(lbl("text  "));
+                    spans.push(key("↵ "));
+                    spans.push(lbl("upload  "));
                 }
                 _ => {}
             }
@@ -231,6 +245,29 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
                 )),
                 Rect { x: inner.x, y: inner.bottom().saturating_sub(1), width: inner.width, height: 1 },
             );
+        }
+        Modal::MacroText => {
+            let area = centered(f.area(), 52, 7);
+            f.render_widget(Clear, area);
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(th.accent))
+                .title(" Macro text ")
+                .style(Style::default().bg(th.bg));
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let lines = vec![
+                Line::styled("  type a string (a–z 0–9 space - =):", Style::default().fg(th.dim)),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled(format!("{}_", app.text_buf), Style::default().fg(th.fg)),
+                ]),
+                Line::from(""),
+                Line::styled("  ↵ upload · esc cancel", Style::default().fg(th.dim)),
+            ];
+            f.render_widget(Paragraph::new(lines), inner);
         }
     }
 }

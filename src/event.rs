@@ -31,6 +31,10 @@ pub enum Action {
     SetDefault,
     SetDisable,
     RecordMacro,
+    /// Macros screen: + add step, Backspace/Del remove, i text input.
+    Add,
+    Remove,
+    TextInput,
 }
 
 pub fn map_key(key: KeyEvent) -> Action {
@@ -53,6 +57,9 @@ pub fn map_key(key: KeyEvent) -> Action {
         KeyCode::Char('d') => Action::SetDefault,
         KeyCode::Char('x') => Action::SetDisable,
         KeyCode::Char('m') => Action::RecordMacro,
+        KeyCode::Char('+') => Action::Add,
+        KeyCode::Backspace | KeyCode::Delete => Action::Remove,
+        KeyCode::Char('i') => Action::TextInput,
         KeyCode::Char('t') => Action::CycleTheme,
         KeyCode::Char('r') => Action::Refresh,
         _ => Action::None,

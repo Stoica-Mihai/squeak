@@ -12,7 +12,7 @@ mod worker;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use ratatui::crossterm::event::{self as ct, Event, KeyEventKind};
+use ratatui::crossterm::event::{self as ct, Event, KeyCode, KeyEventKind};
 
 use crate::app::App;
 use crate::event::map_key;
@@ -43,7 +43,17 @@ fn run(terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
             && let Event::Key(key) = ct::read()?
             && key.kind == KeyEventKind::Press
         {
-            app.update(map_key(key));
+            if app.capturing_text() {
+                match key.code {
+                    KeyCode::Char(c) => app.input_char(c),
+                    KeyCode::Backspace => app.input_backspace(),
+                    KeyCode::Enter => app.input_commit(),
+                    KeyCode::Esc => app.input_cancel(),
+                    _ => {}
+                }
+            } else {
+                app.update(map_key(key));
+            }
         }
 
         while let Ok(update) = worker.update_rx.try_recv() {

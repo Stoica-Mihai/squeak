@@ -4,6 +4,7 @@
 pub mod block;
 pub mod buttons;
 pub mod dpi;
+pub mod macros;
 pub mod polling;
 pub mod sensor;
 pub mod system;
