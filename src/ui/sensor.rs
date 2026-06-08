@@ -59,7 +59,7 @@ fn row_changed(app: &App, row: SensorRow) -> bool {
             e.angle_on != (se.angle != 0) || (e.angle_on && e.angle_deg != dev_deg)
         }
         SensorRow::Debounce => e.debounce != s.debounce.value,
-        SensorRow::Sleep => e.sleep != s.sleep_s,
+        SensorRow::Sleep => e.sleep != s.sleep_min,
     }
 }
 
@@ -103,9 +103,9 @@ fn row_line(app: &App, row: SensorRow, th: Theme) -> Line<'static> {
             }
         }
         SensorRow::Sleep => {
-            spans.push(val(format!("{} s", e.sleep)));
+            spans.push(val(format!("{} min", e.sleep)));
             if selected {
-                spans.push(adj(e.sleep.to_string()));
+                spans.push(adj(format!("{} min", e.sleep)));
             }
         }
     }

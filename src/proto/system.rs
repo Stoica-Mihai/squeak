@@ -20,14 +20,15 @@ pub fn set_debounce(dev: &mut Device, ms: u8) -> Result<u8, HidError> {
     Ok(after)
 }
 
-pub fn set_sleep(dev: &mut Device, seconds: u8) -> Result<u8, HidError> {
-    let (ok, resp) = dev.set(CMD_SLEEP, &[1, seconds])?;
+/// Idle sleep timeout in MINUTES (Launcher range 1–240). Re-reads to confirm.
+pub fn set_sleep(dev: &mut Device, minutes: u8) -> Result<u8, HidError> {
+    let (ok, resp) = dev.set(CMD_SLEEP, &[1, minutes])?;
     if !ok {
         return Err(HidError::BadReply(format!("sleep set rejected: {resp:02x?}")));
     }
-    let after = read_all(dev)?.sleep_s;
-    if after != seconds {
-        return Err(HidError::BadReply(format!("sleep unconfirmed: wanted {seconds}, read {after}")));
+    let after = read_all(dev)?.sleep_min;
+    if after != minutes {
+        return Err(HidError::BadReply(format!("sleep unconfirmed: wanted {minutes}, read {after}")));
     }
     Ok(after)
 }

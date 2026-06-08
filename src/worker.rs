@@ -129,7 +129,7 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
             }
             Cmd::SetSleep(secs) => {
                 let result = system::set_sleep(dev.as_mut().unwrap(), secs)
-                    .map(|v| format!("sleep → {v} s ✓ verified"));
+                    .map(|v| format!("sleep → {v} min ✓ verified"));
                 report_write(&update_tx, &mut dev, result)
             }
             Cmd::FactoryReset => {

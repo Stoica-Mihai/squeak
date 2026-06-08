@@ -48,7 +48,7 @@ field map (Launcher class `zt`):
 | debounce.value | `b[17]` | ms |
 | debounce.values | `b[30:40]` | per-button table |
 | scroll.speed/inertia/spl | `b[27], b[28], b[29]` | |
-| sleep_s | `b[18]` | idle sleep seconds |
+| sleep_min | `b[18]` | idle sleep MINUTES (Launcher 1–240) |
 | battery.percent | `b[19] & 127` | **battery %** |
 | battery.charging | `b[19] >> 7` | |
 | wake.key/scroll/move/side_scroll | `b[51]` bits 4/5/6/7 | wake sources |
@@ -68,7 +68,7 @@ Battery, version, vid/pid additionally come via the dongle-info reads (long cmd
 | `67` | 0x43 | **debounce** | `[1]=value`; if profile≥0: `[2]=17,[3]=profile,[4]=value` |
 | `69` | 0x45 | **DPI profile select** | `[1],[2],[3]` = profile indices/order |
 | `36` | 0x24 | DPI indicator colors | `[1..6]` |
-| `10` | 0x0A | **sleep timeout** | get `[1]=2`; set `[1]=1,[2]=secs||255` |
+| `10` | 0x0A | **sleep timeout** | get `[1]=2`; set `[1]=1,[2]=minutes` (1–240) |
 | `11` | 0x0B | **wireless low-power mode** | get `[1]=2`; set `[1]=1,[2]=v||17,[3]=` |
 | `14` | 0x0E | **profile select** ✅ | `[1]=index (0-based), [2]=count` — verified live over the 2.4 GHz dongle (switching Launcher profile 2/4 → `0e 01 05` / `0e 03 05`). Read back via the 0x06 block's `profile.current`. (Earlier mislabeled "aux/report-rate-separate".) |
 | `15` | 0x0F | **factory reset (selective)** | `all`→`[1]=255`; else `[2]=idx,[3]=bitmask` of {key,dpi,light,sensor,profile,scroll} |

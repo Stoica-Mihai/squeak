@@ -21,7 +21,7 @@ pub struct Settings {
     pub sensor: Sensor,
     pub debounce: Debounce,
     pub scroll: Scroll,
-    pub sleep_s: u8,
+    pub sleep_min: u8,
     pub battery: Battery,
     pub wake: Wake,
     pub support_flags: u8,
@@ -144,7 +144,7 @@ pub fn parse(b: &[u8]) -> Result<Settings, HidError> {
             inertia: b[28],
             spl: b[29],
         },
-        sleep_s: b[18],
+        sleep_min: b[18],
         battery: Battery {
             percent: b[19] & 127,
             charging: b[19] >> 7 == 1,
@@ -191,7 +191,7 @@ mod tests {
         // sensor byte: lod=2, motion(bit4)=1, scroll_dir(bit6)=1
         b[15] = 0b0101_0010;
         b[17] = 10; // debounce
-        b[18] = 30; // sleep_s
+        b[18] = 30; // sleep_min
         b[19] = 0x80 | 85; // battery 85%, charging
         b[26] = 0x2f; // support flags
         b[42] = 0; // step -> defaults to 50
@@ -220,7 +220,7 @@ mod tests {
         assert_eq!(s.sensor.fps20k, 1);
         assert_eq!(s.sensor.angle, 10);
         assert_eq!(s.debounce.value, 10);
-        assert_eq!(s.sleep_s, 30);
+        assert_eq!(s.sleep_min, 30);
         assert_eq!(s.battery.percent, 85);
         assert!(s.battery.charging);
         assert!(s.wake.key && s.wake.mv && s.wake.side_scroll && !s.wake.scroll);

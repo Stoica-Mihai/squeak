@@ -87,7 +87,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     lines.push(Line::from(vec![
         label(th, "Timing"),
         Span::styled(
-            format!("debounce {} ms · sleep {} s", s.debounce.value, s.sleep_s),
+            format!("debounce {} ms · sleep {} min", s.debounce.value, s.sleep_min),
             Style::default().fg(th.fg),
         ),
     ]));

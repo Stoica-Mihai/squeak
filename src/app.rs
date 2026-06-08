@@ -21,8 +21,9 @@ const LOD_MAX: u8 = 2;
 const ANGLE_MAX: u8 = 90;
 const ANGLE_STEP: u8 = 5;
 const DEBOUNCE_MAX: u8 = 30;
-const SLEEP_MAX: u8 = 250;
-const SLEEP_STEP: u8 = 10;
+const SLEEP_MIN: u8 = 1;
+const SLEEP_MAX: u8 = 240;
+const SLEEP_STEP: u8 = 5;
 
 /// Left-sidebar sections. Order = display order.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -333,8 +334,8 @@ impl App {
         if e.debounce != s.debounce.value {
             out.push(("Debounce", format!("{} ms", s.debounce.value), format!("{} ms", e.debounce)));
         }
-        if e.sleep != s.sleep_s {
-            out.push(("Sleep", format!("{} s", s.sleep_s), format!("{} s", e.sleep)));
+        if e.sleep != s.sleep_min {
+            out.push(("Sleep", format!("{} min", s.sleep_min), format!("{} min", e.sleep)));
         }
         out
     }
@@ -686,7 +687,7 @@ impl App {
                 e.angle_on = e.angle_deg > 0;
             }
             SensorRow::Debounce => e.debounce = step_clamp(e.debounce, dir, 0, DEBOUNCE_MAX, 1),
-            SensorRow::Sleep => e.sleep = step_clamp(e.sleep, dir, 0, SLEEP_MAX, SLEEP_STEP),
+            SensorRow::Sleep => e.sleep = step_clamp(e.sleep, dir, SLEEP_MIN, SLEEP_MAX, SLEEP_STEP),
         }
         self.sensor_dirty = true;
     }
@@ -789,7 +790,7 @@ impl App {
         if e.debounce != s.debounce.value {
             let _ = self.cmd_tx.send(Cmd::SetDebounce(e.debounce));
         }
-        if e.sleep != s.sleep_s {
+        if e.sleep != s.sleep_min {
             let _ = self.cmd_tx.send(Cmd::SetSleep(e.sleep));
         }
         self.set_status("applying sensor…".into(), StatusLevel::Info);
@@ -885,7 +886,7 @@ fn seed_sensor(s: &Settings) -> SensorEdit {
         angle_on: s.sensor.angle != 0,
         angle_deg: s.sensor.angle.unsigned_abs().min(ANGLE_MAX as u16) as u8,
         debounce: s.debounce.value,
-        sleep: s.sleep_s,
+        sleep: s.sleep_min,
     }
 }
 
