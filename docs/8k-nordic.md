@@ -70,7 +70,7 @@ Battery, version, vid/pid additionally come via the dongle-info reads (long cmd
 | `36` | 0x24 | DPI indicator colors | `[1..6]` |
 | `10` | 0x0A | **sleep timeout** | get `[1]=2`; set `[1]=1,[2]=secs||255` |
 | `11` | 0x0B | **wireless low-power mode** | get `[1]=2`; set `[1]=1,[2]=v||17,[3]=` |
-| `14` | 0x0E | aux / report-rate-separate | `[1],[2]` |
+| `14` | 0x0E | **profile select** ✅ | `[1]=index (0-based), [2]=count` — verified live over the 2.4 GHz dongle (switching Launcher profile 2/4 → `0e 01 05` / `0e 03 05`). Read back via the 0x06 block's `profile.current`. (Earlier mislabeled "aux/report-rate-separate".) |
 | `15` | 0x0F | **factory reset (selective)** | `all`→`[1]=255`; else `[2]=idx,[3]=bitmask` of {key,dpi,light,sensor,profile,scroll} |
 | `3`  | 0x03 | receiver/connection state | get |
 | `74` | 0x4A | save/commit | no args |
