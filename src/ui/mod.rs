@@ -197,13 +197,13 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
             f.render_widget(Paragraph::new(lines), inner);
         }
         Modal::ButtonPicker(p) => {
-            let area = centered(f.area(), 52, 14);
+            let area = centered(f.area(), 32, 15);
             f.render_widget(Clear, area);
             let block = modal_block(format!(" Assign button {} ", p.id), th.accent, th);
             let inner = block.inner(area);
             f.render_widget(block, area);
 
-            let cols = Layout::horizontal([Constraint::Length(14), Constraint::Min(0)]).split(inner);
+            let cols = Layout::horizontal([Constraint::Length(11), Constraint::Min(0)]).split(inner);
 
             // Type column
             let mut types = vec![Line::styled("Type", Style::default().fg(th.dim))];
@@ -228,7 +228,7 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
 
             f.render_widget(
                 Paragraph::new(Line::styled(
-                    " ↑↓ pick · → values · ↵ assign · esc cancel",
+                    " ↑↓ ←→ · ↵ assign · esc",
                     Style::default().fg(th.dim),
                 )),
                 Rect { x: inner.x, y: inner.bottom().saturating_sub(1), width: inner.width, height: 1 },
