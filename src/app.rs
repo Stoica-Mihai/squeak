@@ -33,18 +33,16 @@ pub enum Screen {
     Polling,
     Sensor,
     Buttons,
-    Macros,
     Profiles,
 }
 
 impl Screen {
-    pub const ALL: [Screen; 7] = [
+    pub const ALL: [Screen; 6] = [
         Screen::Overview,
         Screen::Dpi,
         Screen::Polling,
         Screen::Sensor,
         Screen::Buttons,
-        Screen::Macros,
         Screen::Profiles,
     ];
 
@@ -55,7 +53,6 @@ impl Screen {
             Screen::Polling => "Polling",
             Screen::Sensor => "Sensor",
             Screen::Buttons => "Buttons",
-            Screen::Macros => "Macros",
             Screen::Profiles => "Profiles",
         }
     }
@@ -64,12 +61,7 @@ impl Screen {
     pub fn interactive(self) -> bool {
         matches!(
             self,
-            Screen::Dpi
-                | Screen::Polling
-                | Screen::Sensor
-                | Screen::Buttons
-                | Screen::Macros
-                | Screen::Profiles
+            Screen::Dpi | Screen::Polling | Screen::Sensor | Screen::Buttons | Screen::Profiles
         )
     }
 }
@@ -192,6 +184,8 @@ pub enum Modal {
     MacroText,
     /// Numeric entry for the selected DPI preset.
     DpiInput,
+    /// Macro builder for the target button (click sequence + text option).
+    MacroEdit,
     /// Diff confirmation before applying pending sensor edits.
     ConfirmSensor,
     Help,
@@ -373,11 +367,8 @@ impl App {
                 Focus::Content => self.adjust(d),
             },
             Action::Toggle => {
-                if self.focus == Focus::Content {
-                    match self.screen() {
-                        Screen::Macros => self.macro_add(),
-                        _ => self.toggle_row(),
-                    }
+                if self.focus == Focus::Content && self.screen() == Screen::Sensor {
+                    self.toggle_row();
                 }
             }
             Action::Enter => match self.focus {
@@ -389,45 +380,37 @@ impl App {
             Action::SetDefault => self.button_action(Cmd::SetButtonDefault, "restoring default…"),
             Action::SetDisable => self.button_action(Cmd::SetButtonDisable, "disabling…"),
             Action::RecordMacro => self.start_macro_for_selected_button(),
-            Action::Add => self.macro_add(),
-            Action::Remove => self.macro_remove(),
-            Action::TextInput => match self.screen() {
-                Screen::Macros if self.macro_target.is_some() => {
-                    self.text_buf.clear();
-                    self.modal = Some(Modal::MacroText);
-                }
-                Screen::Dpi => {
+            Action::TextInput => {
+                if self.screen() == Screen::Dpi {
                     self.text_buf.clear();
                     self.modal = Some(Modal::DpiInput);
                 }
-                _ => {}
-            },
-            Action::Confirm | Action::Cancel | Action::None => {}
+            }
+            Action::Add | Action::Remove | Action::Confirm | Action::Cancel | Action::None => {}
         }
     }
 
-    /// `m` on a button: target it and jump to the Macros screen.
+    /// `m` on a button: target it and open the macro editor modal.
     fn start_macro_for_selected_button(&mut self) {
         if !self.on_buttons_content() {
             return;
         }
         self.macro_target = Some(self.buttons[self.button_cursor].id);
         self.macro_seq.clear();
-        self.screen_idx = Screen::ALL.iter().position(|s| *s == Screen::Macros).unwrap();
-        self.focus = Focus::Content;
-        self.set_status("recording macro — add clicks or i for text".into(), StatusLevel::Info);
+        self.macro_palette = 0;
+        self.modal = Some(Modal::MacroEdit);
     }
 
     fn macro_add(&mut self) {
-        if self.screen() == Screen::Macros && self.macro_target.is_some() {
-            self.macro_seq.push(MOUSE_PALETTE[self.macro_palette].1);
-        }
+        self.macro_seq.push(MOUSE_PALETTE[self.macro_palette].1);
     }
 
     fn macro_remove(&mut self) {
-        if self.screen() == Screen::Macros {
-            self.macro_seq.pop();
-        }
+        self.macro_seq.pop();
+    }
+
+    fn macro_cursor(&mut self, delta: i32) {
+        self.macro_palette = clamp_idx(self.macro_palette, delta, MOUSE_PALETTE.len());
     }
 
     // Text/number input modals — char capture routed from the event loop.
@@ -531,6 +514,27 @@ impl App {
             // Text/number capture is routed via input_* from the event loop.
             Modal::MacroText => self.modal = Some(Modal::MacroText),
             Modal::DpiInput => self.modal = Some(Modal::DpiInput),
+            Modal::MacroEdit => match action {
+                Action::Back | Action::Cancel => {} // close
+                Action::Enter => self.upload_click_macro(), // upload + close
+                Action::TextInput => {
+                    self.text_buf.clear();
+                    self.modal = Some(Modal::MacroText);
+                }
+                Action::Vertical(d) => {
+                    self.macro_cursor(d);
+                    self.modal = Some(Modal::MacroEdit);
+                }
+                Action::Add | Action::Toggle => {
+                    self.macro_add();
+                    self.modal = Some(Modal::MacroEdit);
+                }
+                Action::Remove => {
+                    self.macro_remove();
+                    self.modal = Some(Modal::MacroEdit);
+                }
+                _ => self.modal = Some(Modal::MacroEdit),
+            },
             Modal::ConfirmSensor => match action {
                 Action::Enter => self.apply_sensor_row(),
                 Action::Back => {}
@@ -603,16 +607,9 @@ impl App {
         }
     }
 
-    /// Esc: the Macros screen (reached via `m`) returns to the Buttons table;
-    /// elsewhere it just drops focus back to the sidebar.
+    /// Esc: drop focus back to the sidebar.
     fn back(&mut self) {
-        if self.screen() == Screen::Macros && self.focus == Focus::Content {
-            self.screen_idx = Screen::ALL.iter().position(|s| *s == Screen::Buttons).unwrap();
-            self.focus = Focus::Content;
-            self.request_buttons();
-        } else {
-            self.focus = Focus::Sidebar;
-        }
+        self.focus = Focus::Sidebar;
     }
 
     fn section(&mut self, delta: i32) {
@@ -649,9 +646,6 @@ impl App {
             }
             Screen::Buttons if !self.buttons.is_empty() => {
                 self.button_cursor = clamp_idx(self.button_cursor, delta, self.buttons.len());
-            }
-            Screen::Macros => {
-                self.macro_palette = clamp_idx(self.macro_palette, delta, MOUSE_PALETTE.len());
             }
             Screen::Profiles => {
                 self.profile_cursor = clamp_idx(self.profile_cursor, delta, self.profile_count());
@@ -726,7 +720,6 @@ impl App {
                 }
             }
             Screen::Buttons => self.open_button_picker(),
-            Screen::Macros => self.upload_click_macro(),
             Screen::Profiles => {
                 let _ = self.cmd_tx.send(Cmd::SetProfile(self.profile_cursor as u8));
                 self.set_status("switching profile…".into(), StatusLevel::Info);

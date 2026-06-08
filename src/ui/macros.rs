@@ -18,22 +18,8 @@ fn name_for(code: u8) -> &'static str {
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();
-    let Some(id) = app.macro_target else {
-        f.render_widget(
-            Paragraph::new(Line::styled(
-                "Press m on a button (Buttons screen) to record a macro for it.",
-                Style::default().fg(th.dim),
-            )),
-            area,
-        );
-        return;
-    };
 
     let mut lines = vec![
-        Line::from(vec![
-            Span::styled("  target  ", Style::default().fg(th.dim)),
-            Span::styled(format!("button {id}"), Style::default().fg(th.fg).add_modifier(Modifier::BOLD)),
-        ]),
         Line::from(""),
         Line::styled("  add a mouse click:", Style::default().fg(th.dim)),
     ];
@@ -59,7 +45,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
     lines.push(Line::from(""));
     lines.push(Line::styled(
-        "  +/␣ add · ⌫ remove · i text macro · ↵ upload",
+        "  ␣ add · ⌫ del · i text · ↵ upload · esc",
         Style::default().fg(th.dim),
     ));
     f.render_widget(Paragraph::new(lines), area);

@@ -61,7 +61,6 @@ fn render_content(f: &mut Frame, area: Rect, app: &App) {
         Screen::Polling => polling::render(f, inner, app),
         Screen::Sensor => sensor::render(f, inner, app),
         Screen::Buttons => buttons::render(f, inner, app),
-        Screen::Macros => macros::render(f, inner, app),
         Screen::Profiles => profiles::render(f, inner, app),
     }
 }
@@ -127,16 +126,6 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
                     spans.push(lbl("disable  "));
                     spans.push(key("m "));
                     spans.push(lbl("macro  "));
-                }
-                Screen::Macros => {
-                    spans.push(key(" ↑↓ "));
-                    spans.push(lbl("click  "));
-                    spans.push(key("+ "));
-                    spans.push(lbl("add  "));
-                    spans.push(key("i "));
-                    spans.push(lbl("text  "));
-                    spans.push(key("↵ "));
-                    spans.push(lbl("upload  "));
                 }
                 Screen::Profiles => {
                     spans.push(key(" ↑↓ "));
@@ -301,6 +290,15 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
                 Span::styled(" cancel", Style::default().fg(th.dim)),
             ]));
             f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), inner);
+        }
+        Modal::MacroEdit => {
+            let area = centered(f.area(), 52, 15);
+            f.render_widget(Clear, area);
+            let title = format!(" Macro → button {} ", app.macro_target.unwrap_or(0));
+            let block = modal_block(title, th.accent, th);
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+            macros::render(f, inner, app);
         }
         Modal::Help => {
             let area = centered(f.area(), 50, 16);
