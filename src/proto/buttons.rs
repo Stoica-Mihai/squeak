@@ -130,6 +130,10 @@ pub fn friendly_name(id: u8) -> Option<&'static str> {
         4 => Some("Backward"), // confirmed live
         5 => Some("Side ↑"),   // confirmed: side-scroll up (default Vol +)
         6 => Some("Side ↓"),   // confirmed: side-scroll down (default Vol -)
+        // Firmware mirrors the side wheel into a second slot pair (editing 5/6
+        // updates 10/11 and vice-versa) — same physical button.
+        10 => Some("Side ↑ ⧉"),
+        11 => Some("Side ↓ ⧉"),
         _ => None,
     }
 }
