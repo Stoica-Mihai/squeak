@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::app::App;
-use crate::proto::buttons::{is_present, type_name};
+use crate::proto::buttons::{friendly_name, is_present, type_name};
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();
@@ -23,15 +23,16 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     }
 
     let mut lines = vec![Line::styled(
-        "  id   type         assignment",
+        "  id  button     type         assignment",
         Style::default().fg(th.dim),
     )];
     for (i, b) in app.buttons.iter().enumerate() {
         let selected = i == app.button_cursor;
         let cursor = if selected { "▸" } else { " " };
         let text = format!(
-            " {cursor} {id:>2}   {ty:<11}  {label}",
+            " {cursor} {id:>2}  {name:<9}  {ty:<11}  {label}",
             id = b.id,
+            name = friendly_name(b.id).unwrap_or(""),
             ty = type_name(b.type_id),
             label = b.label,
         );
