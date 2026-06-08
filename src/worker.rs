@@ -21,6 +21,7 @@ pub enum Cmd {
     SetDebounce(u8),
     SetSleep(u8),
     SetButtonMouse { id: u8, action: String },
+    SetButtonMedia { id: u8, action: String },
     SetButtonDisable(u8),
     SetButtonDefault(u8),
     SetMacro { id: u8, events: Vec<u8> },
@@ -144,6 +145,11 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
             },
             Cmd::SetButtonMouse { id, action } => {
                 let result = buttons::set_mouse(dev.as_mut().unwrap(), id, &action)
+                    .map(|b| format!("button {id} → {} ✓ verified", b.label));
+                report_button_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetButtonMedia { id, action } => {
+                let result = buttons::set_media(dev.as_mut().unwrap(), id, &action)
                     .map(|b| format!("button {id} → {} ✓ verified", b.label));
                 report_button_write(&update_tx, &mut dev, result)
             }

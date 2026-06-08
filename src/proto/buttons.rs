@@ -57,18 +57,20 @@ fn mouse_name(data: u32) -> Option<&'static str> {
     MOUSE_ACTIONS.iter().find(|(_, v)| *v == data).map(|(n, _)| *n)
 }
 
+/// Assignable Media (Consumer Control) actions: name -> consumer code.
+pub const MEDIA_ACTIONS: [(&str, u8); 7] = [
+    ("Vol +", 0xe9),
+    ("Vol -", 0xea),
+    ("Mute", 0xe2),
+    ("Play/Pause", 0xcd),
+    ("Next", 0xb5),
+    ("Prev", 0xb6),
+    ("Stop", 0xb7),
+];
+
 /// Media (Consumer Control) action from the high byte of the 24-bit data.
 fn media_name(data: u32) -> Option<&'static str> {
-    Some(match data >> 16 {
-        0xe9 => "Vol +",
-        0xea => "Vol -",
-        0xe2 => "Mute",
-        0xcd => "Play/Pause",
-        0xb5 => "Next",
-        0xb6 => "Prev",
-        0xb7 => "Stop",
-        _ => return None,
-    })
+    MEDIA_ACTIONS.iter().find(|(_, c)| *c as u32 == data >> 16).map(|(n, _)| *n)
 }
 
 #[derive(Clone, Debug)]
@@ -157,6 +159,17 @@ pub fn set_mouse(dev: &mut Device, id: u8, action: &str) -> Result<ButtonInfo, H
         .map(|(_, v)| *v)
         .ok_or_else(|| HidError::BadReply(format!("unknown mouse action {action}")))?;
     set_button(dev, id, TYPE_MOUSE, data)
+}
+
+/// Assign a media action by name. Data = `(consumer_code << 16) | 0x00FF`
+/// (matches the device's stored format, e.g. Vol+ = 0xe900ff).
+pub fn set_media(dev: &mut Device, id: u8, action: &str) -> Result<ButtonInfo, HidError> {
+    let code = MEDIA_ACTIONS
+        .iter()
+        .find(|(n, _)| *n == action)
+        .map(|(_, c)| *c)
+        .ok_or_else(|| HidError::BadReply(format!("unknown media action {action}")))?;
+    set_button(dev, id, TYPE_MEDIA, ((code as u32) << 16) | 0xff)
 }
 
 /// Turn a button OFF (no action).

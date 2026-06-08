@@ -9,7 +9,7 @@ use std::time::Instant;
 use crate::event::Action;
 use crate::proto::Variant;
 use crate::proto::block::Settings;
-use crate::proto::buttons::{ButtonInfo, MOUSE_ACTIONS};
+use crate::proto::buttons::{ButtonInfo, MEDIA_ACTIONS, MOUSE_ACTIONS};
 use crate::proto::dpi::{DPI_MAX, DPI_MIN, NUM_PRESETS};
 use crate::proto::macros::{self, MOUSE_PALETTE};
 use crate::proto::polling::RATES_HZ;
@@ -139,15 +139,37 @@ pub enum PickerCol {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PickKind {
     Mouse,
+    Media,
     Disable,
     Default,
 }
 
-pub const PICK_TYPES: [(&str, PickKind); 3] = [
+pub const PICK_TYPES: [(&str, PickKind); 4] = [
     ("Mouse", PickKind::Mouse),
+    ("Media", PickKind::Media),
     ("Disable", PickKind::Disable),
     ("Default", PickKind::Default),
 ];
+
+impl PickKind {
+    /// Number of values offered for this type (0 = applied immediately).
+    pub fn value_count(self) -> usize {
+        match self {
+            PickKind::Mouse => MOUSE_ACTIONS.len(),
+            PickKind::Media => MEDIA_ACTIONS.len(),
+            _ => 0,
+        }
+    }
+
+    /// Value label at `idx` for this type.
+    pub fn value_label(self, idx: usize) -> &'static str {
+        match self {
+            PickKind::Mouse => MOUSE_ACTIONS[idx].0,
+            PickKind::Media => MEDIA_ACTIONS[idx].0,
+            _ => "",
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct Picker {
@@ -450,24 +472,18 @@ impl App {
     fn update_picker(&mut self, mut p: Picker, action: Action) {
         match action {
             Action::Cancel | Action::Back => return, // closed (modal already taken)
-            Action::Vertical(d) => {
-                let len = match p.col {
-                    PickerCol::Type => PICK_TYPES.len(),
-                    PickerCol::Value => MOUSE_ACTIONS.len(),
-                };
-                let cur = match p.col {
-                    PickerCol::Type => p.type_idx,
-                    PickerCol::Value => p.value_idx,
-                };
-                let next = clamp_idx(cur, d, len);
-                match p.col {
-                    PickerCol::Type => p.type_idx = next,
-                    PickerCol::Value => p.value_idx = next,
+            Action::Vertical(d) => match p.col {
+                PickerCol::Type => p.type_idx = clamp_idx(p.type_idx, d, PICK_TYPES.len()),
+                PickerCol::Value => {
+                    let len = PICK_TYPES[p.type_idx].1.value_count();
+                    p.value_idx = clamp_idx(p.value_idx, d, len);
                 }
-            }
+            },
             Action::Horizontal(d) => {
-                if d > 0 && p.col == PickerCol::Type && PICK_TYPES[p.type_idx].1 == PickKind::Mouse {
+                let has_values = PICK_TYPES[p.type_idx].1.value_count() > 0;
+                if d > 0 && p.col == PickerCol::Type && has_values {
                     p.col = PickerCol::Value;
+                    p.value_idx = 0;
                 } else if d < 0 && p.col == PickerCol::Value {
                     p.col = PickerCol::Type;
                 }
@@ -481,10 +497,12 @@ impl App {
 
     /// Act on the picker. Returns true if a command was sent (close the modal).
     fn commit_picker(&mut self, p: &mut Picker) -> bool {
+        let kind = PICK_TYPES[p.type_idx].1;
         match p.col {
-            PickerCol::Type => match PICK_TYPES[p.type_idx].1 {
-                PickKind::Mouse => {
+            PickerCol::Type => match kind {
+                PickKind::Mouse | PickKind::Media => {
                     p.col = PickerCol::Value; // descend into values, stay open
+                    p.value_idx = 0;
                     false
                 }
                 PickKind::Disable => {
@@ -499,8 +517,12 @@ impl App {
                 }
             },
             PickerCol::Value => {
-                let action = MOUSE_ACTIONS[p.value_idx].0.to_string();
-                let _ = self.cmd_tx.send(Cmd::SetButtonMouse { id: p.id, action });
+                let action = kind.value_label(p.value_idx).to_string();
+                let cmd = match kind {
+                    PickKind::Media => Cmd::SetButtonMedia { id: p.id, action },
+                    _ => Cmd::SetButtonMouse { id: p.id, action },
+                };
+                let _ = self.cmd_tx.send(cmd);
                 self.set_status("applying…".into(), StatusLevel::Info);
                 true
             }

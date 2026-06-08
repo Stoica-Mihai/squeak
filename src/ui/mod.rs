@@ -18,8 +18,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Clear, Paragraph},
 };
 
-use crate::app::{App, Focus, Modal, PICK_TYPES, PickKind, PickerCol, Screen, StatusLevel};
-use crate::proto::buttons::MOUSE_ACTIONS;
+use crate::app::{App, Focus, Modal, PICK_TYPES, PickerCol, Screen, StatusLevel};
 
 pub fn render(f: &mut Frame, app: &App) {
     let th = app.theme();
@@ -214,12 +213,13 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
             }
             f.render_widget(Paragraph::new(types), cols[0]);
 
-            // Value column (mouse actions when the Mouse type is selected)
+            // Value column: actions for the selected type (Mouse/Media).
+            let kind = PICK_TYPES[p.type_idx].1;
             let mut values = vec![Line::styled("Action", Style::default().fg(th.dim))];
-            if PICK_TYPES[p.type_idx].1 == PickKind::Mouse {
-                for (i, (name, _)) in MOUSE_ACTIONS.iter().enumerate() {
+            if kind.value_count() > 0 {
+                for i in 0..kind.value_count() {
                     let on = p.col == PickerCol::Value && i == p.value_idx;
-                    values.push(row_line(name, on, th));
+                    values.push(row_line(kind.value_label(i), on, th));
                 }
             } else {
                 values.push(Line::styled("  ↵ to apply", Style::default().fg(th.dim)));
