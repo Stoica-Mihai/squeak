@@ -1,0 +1,22 @@
+[package]
+name = "squeak"
+version = "0.1.0"
+edition = "2024"
+description = "Terminal configurator for Keychron mice on Linux (8k_nordic verified)"
+license = "MIT"
+repository = "https://github.com/Stoica-Mihai/squeak"
+default-run = "squeak"
+
+[[bin]]
+name = "squeak"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.29"
+anyhow = "1"
+thiserror = "2"
+
+# rust-poc/ is a separate throwaway crate; keep it out of this package.
+[workspace]
+members = ["."]
+exclude = ["rust-poc"]
