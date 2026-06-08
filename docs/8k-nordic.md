@@ -158,11 +158,19 @@ No separate encoder protocol — handled by the button mechanism:
 Note: button GET (`0x62`) on the side-scroll slots can read volatile values while
 the wheel is being turned (live scroll bleeds into the slot read).
 
-## Gestures / tap-holds / combos — NAPE group (`0xA7`=167)
+## Gestures / tap-holds / combos — NOT SUPPORTED on this device
 
-Gestures, tap-holds, combos still go through the NAPE group. The Launcher targets
-the QMK-raw collection (usage `0xFF60`) with `buf[0]=167, buf[1]=sub` and the
-`161-sum` checksum on 64-byte frames. Sub-commands:
+The NAPE enum (below) includes gesture/taphold/combo sub-commands, but they are
+for other Keychron devices (keyboards/trackballs). This mouse's capability flags
+do **not** advertise them — the `support` object decoded from the `0x06` block
+has no gestureSupport/comboSupport/tapHoldSupport field. Confirmed via the
+support byte `b[26]` (and `b[53]`/`b[60]` extras): the supported features are
+scroll, debounce, max/step, pollingGears, profile, rouseOrigin, fps20k, sleep,
+loopDoublePress, pairKey, quickResp, profileSelect, angle, dpiSeparate,
+reportRateSeparate, triggerSense — nothing gesture-related.
+
+The NAPE group (QMK-raw collection usage `0xFF60`, `buf[0]=167, buf[1]=sub`,
+`161-sum` checksum) is documented here only for completeness:
 
 | sub | name |
 |---|---|

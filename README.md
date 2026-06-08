@@ -56,9 +56,10 @@ Every write re-reads the device and confirms the value took. All commands above
 are verified live on the 8k_nordic device.
 
 Macros support mouse / keyboard / modifier events, short and long (long macros
-are chunked via the `0x71` scheme automatically). Documented-but-not-implemented
-(in `docs/`): scroll-wheel **encoder** and gestures/tap-holds/combos (NAPE
-`0xA7` group).
+are chunked via the `0x71` scheme automatically). Side-scroll encoders are
+remappable through the `button` command. Middle scroll is a fixed wheel, and
+gestures/tap-holds/combos are not supported by this device (its capability flags
+don't advertise them) — so the CLI covers the M6's full configurable feature set.
 
 ## Protocol
 
