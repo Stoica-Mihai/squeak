@@ -1,6 +1,7 @@
 //! Frame layout: sidebar | content, with a one-line footer (keybinds + status).
 //! Overview is wired (M1); other sections are placeholders pending M2+.
 
+mod buttons;
 mod dpi;
 mod overview;
 mod polling;
@@ -15,7 +16,8 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
-use crate::app::{App, Focus, Modal, Screen, StatusLevel};
+use crate::app::{App, Focus, Modal, PICK_TYPES, PickKind, PickerCol, Screen, StatusLevel};
+use crate::proto::buttons::MOUSE_ACTIONS;
 
 pub fn render(f: &mut Frame, app: &App) {
     let th = app.theme();
@@ -56,6 +58,7 @@ fn render_content(f: &mut Frame, area: Rect, app: &App) {
         Screen::Dpi => dpi::render(f, inner, app),
         Screen::Polling => polling::render(f, inner, app),
         Screen::Sensor => sensor::render(f, inner, app),
+        Screen::Buttons => buttons::render(f, inner, app),
         _ => f.render_widget(
             Paragraph::new(Line::styled(
                 "not yet wired — coming in a later milestone",
@@ -118,6 +121,16 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
                     spans.push(key("↵ "));
                     spans.push(lbl("apply  "));
                 }
+                Screen::Buttons => {
+                    spans.push(key(" ↑↓ "));
+                    spans.push(lbl("button  "));
+                    spans.push(key("↵ "));
+                    spans.push(lbl("remap  "));
+                    spans.push(key("d "));
+                    spans.push(lbl("default  "));
+                    spans.push(key("x "));
+                    spans.push(lbl("disable  "));
+                }
                 _ => {}
             }
             spans.push(key("⇥ "));
@@ -178,7 +191,59 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
             ];
             f.render_widget(Paragraph::new(lines), inner);
         }
+        Modal::ButtonPicker(p) => {
+            let area = centered(f.area(), 52, 14);
+            f.render_widget(Clear, area);
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(th.accent))
+                .title(format!(" Assign button {} ", p.id))
+                .style(Style::default().bg(th.bg));
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let cols = Layout::horizontal([Constraint::Length(14), Constraint::Min(0)]).split(inner);
+
+            // Type column
+            let mut types = vec![Line::styled("Type", Style::default().fg(th.dim))];
+            for (i, (name, _)) in PICK_TYPES.iter().enumerate() {
+                let on = p.col == PickerCol::Type && i == p.type_idx;
+                types.push(row_line(name, on, th));
+            }
+            f.render_widget(Paragraph::new(types), cols[0]);
+
+            // Value column (mouse actions when the Mouse type is selected)
+            let mut values = vec![Line::styled("Action", Style::default().fg(th.dim))];
+            if PICK_TYPES[p.type_idx].1 == PickKind::Mouse {
+                for (i, (name, _)) in MOUSE_ACTIONS.iter().enumerate() {
+                    let on = p.col == PickerCol::Value && i == p.value_idx;
+                    values.push(row_line(name, on, th));
+                }
+            } else {
+                values.push(Line::styled("  ↵ to apply", Style::default().fg(th.dim)));
+            }
+            f.render_widget(Paragraph::new(values), cols[1]);
+
+            f.render_widget(
+                Paragraph::new(Line::styled(
+                    " ↑↓ pick · → values · ↵ assign · esc cancel",
+                    Style::default().fg(th.dim),
+                )),
+                Rect { x: inner.x, y: inner.bottom().saturating_sub(1), width: inner.width, height: 1 },
+            );
+        }
     }
+}
+
+/// One selectable row in the picker.
+fn row_line(label: &str, selected: bool, th: crate::theme::Theme) -> Line<'static> {
+    let marker = if selected { "▸ " } else { "  " };
+    let style = if selected {
+        Style::default().fg(th.sel_fg).bg(th.sel_bg).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(th.fg)
+    };
+    Line::styled(format!("{marker}{label}"), style)
 }
 
 /// Center a `w`×`h` rect within `area`.

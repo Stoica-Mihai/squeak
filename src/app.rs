@@ -8,6 +8,7 @@ use std::sync::mpsc::Sender;
 use crate::event::Action;
 use crate::proto::Variant;
 use crate::proto::block::Settings;
+use crate::proto::buttons::{ButtonInfo, MOUSE_ACTIONS};
 use crate::proto::dpi::{DPI_MAX, DPI_MIN, NUM_PRESETS};
 use crate::proto::polling::RATES_HZ;
 use crate::proto::sensor::SensorFields;
@@ -58,7 +59,7 @@ impl Screen {
 
     /// Whether the content pane accepts focus / editing (others are read-only).
     pub fn interactive(self) -> bool {
-        matches!(self, Screen::Dpi | Screen::Polling | Screen::Sensor)
+        matches!(self, Screen::Dpi | Screen::Polling | Screen::Sensor | Screen::Buttons)
     }
 }
 
@@ -122,9 +123,39 @@ pub struct SensorEdit {
     pub sleep: u8,
 }
 
+/// Action-picker columns: choose a type, then (for Mouse) a value.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PickerCol {
+    Type,
+    Value,
+}
+
+/// Action types offered in the picker (M4: the verified set).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PickKind {
+    Mouse,
+    Disable,
+    Default,
+}
+
+pub const PICK_TYPES: [(&str, PickKind); 3] = [
+    ("Mouse", PickKind::Mouse),
+    ("Disable", PickKind::Disable),
+    ("Default", PickKind::Default),
+];
+
+#[derive(Clone, Copy)]
+pub struct Picker {
+    pub id: u8,
+    pub col: PickerCol,
+    pub type_idx: usize,
+    pub value_idx: usize,
+}
+
 /// Active modal overlay.
 pub enum Modal {
     ConfirmReset,
+    ButtonPicker(Picker),
 }
 
 /// Connection state to the device.
@@ -169,6 +200,10 @@ pub struct App {
     pub sensor_edit: SensorEdit,
     pub sensor_dirty: bool,
 
+    // Buttons
+    pub buttons: Vec<ButtonInfo>,
+    pub button_cursor: usize,
+
     pub modal: Option<Modal>,
 
     cmd_tx: Sender<Cmd>,
@@ -194,6 +229,8 @@ impl App {
             sensor_cursor: 0,
             sensor_edit: SensorEdit::default(),
             sensor_dirty: false,
+            buttons: Vec::new(),
+            button_cursor: 0,
             modal: None,
             cmd_tx,
         }
@@ -209,6 +246,10 @@ impl App {
 
     pub fn request_read(&self) {
         let _ = self.cmd_tx.send(Cmd::ReadAll);
+    }
+
+    pub fn request_buttons(&self) {
+        let _ = self.cmd_tx.send(Cmd::ReadButtons);
     }
 
     /// Has the DPI cursor's preset been edited away from the device value?
@@ -232,6 +273,9 @@ impl App {
             }
             Action::Refresh => {
                 self.request_read();
+                if self.screen() == Screen::Buttons {
+                    self.request_buttons();
+                }
                 self.set_status("refreshing…".into(), StatusLevel::Info);
             }
             Action::ToggleFocus => self.toggle_focus(),
@@ -258,26 +302,128 @@ impl App {
                 Focus::Content => self.apply_edit(),
             },
             Action::ResetPrompt => self.modal = Some(Modal::ConfirmReset),
+            Action::SetDefault => self.button_action(Cmd::SetButtonDefault, "restoring default…"),
+            Action::SetDisable => self.button_action(Cmd::SetButtonDisable, "disabling…"),
+            Action::RecordMacro => {
+                if self.on_buttons_content() {
+                    self.set_status("macros: coming in M5".into(), StatusLevel::Info);
+                }
+            }
             Action::Confirm | Action::Cancel | Action::None => {}
         }
     }
 
+    fn on_buttons_content(&self) -> bool {
+        self.focus == Focus::Content && self.screen() == Screen::Buttons && !self.buttons.is_empty()
+    }
+
+    /// Send a per-button command for the selected button (Buttons content only).
+    fn button_action(&mut self, make: impl Fn(u8) -> Cmd, status: &str) {
+        if !self.on_buttons_content() {
+            return;
+        }
+        let id = self.buttons[self.button_cursor].id;
+        let _ = self.cmd_tx.send(make(id));
+        self.set_status(status.into(), StatusLevel::Info);
+    }
+
+    fn open_button_picker(&mut self) {
+        if self.buttons.is_empty() {
+            return;
+        }
+        self.modal = Some(Modal::ButtonPicker(Picker {
+            id: self.buttons[self.button_cursor].id,
+            col: PickerCol::Type,
+            type_idx: 0,
+            value_idx: 0,
+        }));
+    }
+
     fn update_modal(&mut self, action: Action) {
+        if let Action::Quit = action {
+            self.running = false;
+            return;
+        }
+        let Some(modal) = self.modal.take() else { return };
+        match modal {
+            Modal::ConfirmReset => match action {
+                Action::Confirm | Action::Enter => {
+                    let _ = self.cmd_tx.send(Cmd::FactoryReset);
+                    self.set_status("factory reset…".into(), StatusLevel::Info);
+                }
+                Action::Cancel | Action::Back => {}
+                _ => self.modal = Some(Modal::ConfirmReset), // keep open on stray keys
+            },
+            Modal::ButtonPicker(p) => self.update_picker(p, action),
+        }
+    }
+
+    fn update_picker(&mut self, mut p: Picker, action: Action) {
         match action {
-            Action::Confirm | Action::Enter => {
-                let _ = self.cmd_tx.send(Cmd::FactoryReset);
-                self.set_status("factory reset…".into(), StatusLevel::Info);
-                self.modal = None;
+            Action::Cancel | Action::Back => return, // closed (modal already taken)
+            Action::Vertical(d) => {
+                let len = match p.col {
+                    PickerCol::Type => PICK_TYPES.len(),
+                    PickerCol::Value => MOUSE_ACTIONS.len(),
+                };
+                let cur = match p.col {
+                    PickerCol::Type => p.type_idx,
+                    PickerCol::Value => p.value_idx,
+                };
+                let next = clamp_idx(cur, d, len);
+                match p.col {
+                    PickerCol::Type => p.type_idx = next,
+                    PickerCol::Value => p.value_idx = next,
+                }
             }
-            Action::Cancel | Action::Back => self.modal = None,
-            Action::Quit => self.running = false,
+            Action::Horizontal(d) => {
+                if d > 0 && p.col == PickerCol::Type && PICK_TYPES[p.type_idx].1 == PickKind::Mouse {
+                    p.col = PickerCol::Value;
+                } else if d < 0 && p.col == PickerCol::Value {
+                    p.col = PickerCol::Type;
+                }
+            }
+            // commit_picker returns true when a command was sent -> leave closed
+            Action::Enter | Action::Confirm if self.commit_picker(&mut p) => return,
             _ => {}
+        }
+        self.modal = Some(Modal::ButtonPicker(p)); // keep open
+    }
+
+    /// Act on the picker. Returns true if a command was sent (close the modal).
+    fn commit_picker(&mut self, p: &mut Picker) -> bool {
+        match p.col {
+            PickerCol::Type => match PICK_TYPES[p.type_idx].1 {
+                PickKind::Mouse => {
+                    p.col = PickerCol::Value; // descend into values, stay open
+                    false
+                }
+                PickKind::Disable => {
+                    let _ = self.cmd_tx.send(Cmd::SetButtonDisable(p.id));
+                    self.set_status("disabling…".into(), StatusLevel::Info);
+                    true
+                }
+                PickKind::Default => {
+                    let _ = self.cmd_tx.send(Cmd::SetButtonDefault(p.id));
+                    self.set_status("restoring default…".into(), StatusLevel::Info);
+                    true
+                }
+            },
+            PickerCol::Value => {
+                let action = MOUSE_ACTIONS[p.value_idx].0.to_string();
+                let _ = self.cmd_tx.send(Cmd::SetButtonMouse { id: p.id, action });
+                self.set_status("applying…".into(), StatusLevel::Info);
+                true
+            }
         }
     }
 
     fn section(&mut self, delta: i32) {
         let len = Screen::ALL.len() as i32;
         self.screen_idx = (self.screen_idx as i32 + delta).rem_euclid(len) as usize;
+        if self.screen() == Screen::Buttons {
+            self.request_buttons(); // lazy-load the button table on entry
+        }
     }
 
     fn enter_content(&mut self) {
@@ -303,6 +449,9 @@ impl App {
             }
             Screen::Sensor => {
                 self.sensor_cursor = clamp_idx(self.sensor_cursor, delta, SensorRow::ALL.len());
+            }
+            Screen::Buttons if !self.buttons.is_empty() => {
+                self.button_cursor = clamp_idx(self.button_cursor, delta, self.buttons.len());
             }
             _ => {}
         }
@@ -371,6 +520,7 @@ impl App {
                 self.set_status("applying polling rate…".into(), StatusLevel::Info);
             }
             Screen::Sensor => self.apply_sensor_row(),
+            Screen::Buttons => self.open_button_picker(),
             _ => {}
         }
     }
@@ -424,6 +574,12 @@ impl App {
                     self.sensor_edit = seed_sensor(&s);
                 }
                 self.settings = Some(*s);
+            }
+            Update::Buttons(v) => {
+                self.buttons = v;
+                if self.button_cursor >= self.buttons.len() {
+                    self.button_cursor = self.buttons.len().saturating_sub(1);
+                }
             }
             Update::Written { ok, msg } => {
                 self.set_status(msg, if ok { StatusLevel::Ok } else { StatusLevel::Err });

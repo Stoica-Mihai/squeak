@@ -27,6 +27,10 @@ pub enum Action {
     /// Modal: confirm / cancel.
     Confirm,
     Cancel,
+    /// Buttons screen: d restore default, x disable, m record macro.
+    SetDefault,
+    SetDisable,
+    RecordMacro,
 }
 
 pub fn map_key(key: KeyEvent) -> Action {
@@ -46,6 +50,9 @@ pub fn map_key(key: KeyEvent) -> Action {
         KeyCode::Char('X') => Action::ResetPrompt,
         KeyCode::Char('y') => Action::Confirm,
         KeyCode::Char('n') => Action::Cancel,
+        KeyCode::Char('d') => Action::SetDefault,
+        KeyCode::Char('x') => Action::SetDisable,
+        KeyCode::Char('m') => Action::RecordMacro,
         KeyCode::Char('t') => Action::CycleTheme,
         KeyCode::Char('r') => Action::Refresh,
         _ => Action::None,

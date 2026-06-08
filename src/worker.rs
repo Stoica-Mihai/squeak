@@ -7,17 +7,22 @@ use std::thread::{self, JoinHandle};
 
 use crate::hid::{Device, DeviceInfo, find_config};
 use crate::proto::block::{self, Settings};
+use crate::proto::buttons::{self, ButtonInfo};
 use crate::proto::sensor::SensorFields;
 use crate::proto::{self, Variant, dpi, polling, sensor, system};
 
 pub enum Cmd {
     ReadAll,
+    ReadButtons,
     SetDpi { index: usize, value: u16 },
     SetRate { hz: u32 },
     SetSensor(SensorFields),
     SetAngle { degrees: u8, enable: bool },
     SetDebounce(u8),
     SetSleep(u8),
+    SetButtonMouse { id: u8, action: String },
+    SetButtonDisable(u8),
+    SetButtonDefault(u8),
     FactoryReset,
     Shutdown,
 }
@@ -25,6 +30,7 @@ pub enum Cmd {
 pub enum Update {
     Connected { name: String, variant: Variant },
     Settings(Box<Settings>),
+    Buttons(Vec<ButtonInfo>),
     /// Result of a write, after read-back. Drives the ✓/✗ status line.
     Written { ok: bool, msg: String },
     Error(String),
@@ -128,6 +134,28 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
                     .map(|_| "factory reset sent".to_string());
                 report_write(&update_tx, &mut dev, result)
             }
+            Cmd::ReadButtons => match buttons::get_all(dev.as_mut().unwrap(), buttons::COUNT) {
+                Ok(v) => send(&update_tx, Update::Buttons(v)),
+                Err(e) => {
+                    dev = None;
+                    send(&update_tx, Update::Error(format!("button read failed: {e}")))
+                }
+            },
+            Cmd::SetButtonMouse { id, action } => {
+                let result = buttons::set_mouse(dev.as_mut().unwrap(), id, &action)
+                    .map(|b| format!("button {id} → {} ✓ verified", b.label));
+                report_button_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetButtonDisable(id) => {
+                let result = buttons::disable(dev.as_mut().unwrap(), id)
+                    .map(|_| format!("button {id} disabled ✓ verified"));
+                report_button_write(&update_tx, &mut dev, result)
+            }
+            Cmd::SetButtonDefault(id) => {
+                let result = buttons::restore_default(dev.as_mut().unwrap(), id)
+                    .map(|b| format!("button {id} → {} ✓ verified", b.label));
+                report_button_write(&update_tx, &mut dev, result)
+            }
         };
         if stop {
             break;
@@ -178,6 +206,28 @@ fn report_write(
         Err(e) => {
             *dev_slot = None;
             send(tx, Update::Error(format!("read failed: {e}")))
+        }
+    }
+}
+
+/// Like `report_write`, but refreshes the button table after the write.
+fn report_button_write(
+    tx: &Sender<Update>,
+    dev_slot: &mut Option<Device>,
+    result: Result<String, crate::hid::HidError>,
+) -> bool {
+    let written = match &result {
+        Ok(msg) => Update::Written { ok: true, msg: msg.clone() },
+        Err(e) => Update::Written { ok: false, msg: e.to_string() },
+    };
+    if send(tx, written) {
+        return true;
+    }
+    match buttons::get_all(dev_slot.as_mut().unwrap(), buttons::COUNT) {
+        Ok(v) => send(tx, Update::Buttons(v)),
+        Err(e) => {
+            *dev_slot = None;
+            send(tx, Update::Error(format!("button read failed: {e}")))
         }
     }
 }
