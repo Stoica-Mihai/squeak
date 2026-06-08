@@ -11,8 +11,12 @@ const CMD_GET_BUTTON: u8 = 0x62;
 pub const COUNT: usize = 16;
 
 const TYPE_MOUSE: u8 = 1;
+const TYPE_MEDIA: u8 = 3;
 const TYPE_DISABLE: u8 = 9;
 const TYPE_DEFAULT: u8 = 0;
+
+/// "Default" data sentinels: 0xffffff = real default button, 0 = empty slot.
+const DEFAULT_DATA: u32 = 0xffffff;
 
 /// Action type enum `S` from the Launcher.
 pub fn type_name(t: u8) -> &'static str {
@@ -51,6 +55,20 @@ fn mouse_name(data: u32) -> Option<&'static str> {
     MOUSE_ACTIONS.iter().find(|(_, v)| *v == data).map(|(n, _)| *n)
 }
 
+/// Media (Consumer Control) action from the high byte of the 24-bit data.
+fn media_name(data: u32) -> Option<&'static str> {
+    Some(match data >> 16 {
+        0xe9 => "Vol +",
+        0xea => "Vol -",
+        0xe2 => "Mute",
+        0xcd => "Play/Pause",
+        0xb5 => "Next",
+        0xb6 => "Prev",
+        0xb7 => "Stop",
+        _ => return None,
+    })
+}
+
 #[derive(Clone, Debug)]
 pub struct ButtonInfo {
     pub id: u8,
@@ -79,10 +97,19 @@ fn label_for(type_id: u8, data: u32) -> String {
         TYPE_MOUSE => mouse_name(data)
             .map(|n| n.to_string())
             .unwrap_or_else(|| format!("mouse 0x{data:06x}")),
-        TYPE_DEFAULT => "default".to_string(),
+        TYPE_MEDIA => media_name(data)
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| format!("media 0x{:02x}", data >> 16)),
         TYPE_DISABLE => "disabled".to_string(),
+        TYPE_DEFAULT if data == DEFAULT_DATA => "default".to_string(),
+        TYPE_DEFAULT => "—".to_string(), // empty / non-physical slot
         t => type_name(t).to_string(),
     }
+}
+
+/// Whether this slot is a real, configurable button (not an empty slot).
+pub fn is_present(b: &ButtonInfo) -> bool {
+    !(b.type_id == TYPE_DEFAULT && b.data != DEFAULT_DATA)
 }
 
 pub fn get_all(dev: &mut Device, count: usize) -> Result<Vec<ButtonInfo>, HidError> {
@@ -134,6 +161,17 @@ mod tests {
     fn be24_split() {
         assert_eq!(be24(0x010000), [0x01, 0x00, 0x00]);
         assert_eq!(be24(0x00fe00), [0x00, 0xfe, 0x00]);
+    }
+
+    #[test]
+    #[ignore = "dumps live button slots (read-only)"]
+    fn live_dump_buttons() {
+        use crate::hid::{Device, find_config};
+        let info = find_config().expect("device");
+        let mut dev = Device::open(&info.node).expect("open");
+        for b in get_all(&mut dev, COUNT).unwrap() {
+            eprintln!("id {:2}  type {:2} ({:11})  data 0x{:06x}", b.id, b.type_id, type_name(b.type_id), b.data);
+        }
     }
 
     #[test]

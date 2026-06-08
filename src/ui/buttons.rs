@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::app::App;
-use crate::proto::buttons::type_name;
+use crate::proto::buttons::{is_present, type_name};
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();
@@ -37,8 +37,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         );
         let style = if selected {
             Style::default().fg(th.sel_fg).bg(th.sel_bg).add_modifier(Modifier::BOLD)
-        } else {
+        } else if is_present(b) {
             Style::default().fg(th.fg)
+        } else {
+            Style::default().fg(th.dim) // empty / non-physical slot
         };
         lines.push(Line::styled(text, style));
     }
