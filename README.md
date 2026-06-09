@@ -7,19 +7,59 @@ Every write is read back and verified.
 First-class target: **Keychron M6 8K / Ultra-Link 8K dongle** (`8k_nordic`,
 VID `0x3434`), verified live on firmware 0.1.6.
 
-```
-╭ squeak ────────╮╭ Overview ──────────────────────────────────────────╮
-│▌ Overview      ││Keychron Ultra-Link 8K  ·  2.4 GHz  ·  firmware 0.1.6│
-│  DPI           ││                                                     │
-│  Polling       ││Battery  ████████████████████████ 100%              │
-│  Sensor        ││DPI      400 800 1600 4250 6000                      │
-│  Buttons       ││Polling  125 Hz                                      │
-│  Profiles      ││Sensor   LOD 1 · normal scroll · angle off           │
-│                ││Timing   debounce 4 ms · sleep 7 min                 │
-│ ● Ultra-Link 8K││last refreshed 2s ago                                │
-│   100%         ││                                                     │
-╰────────────────╯╰─────────────────────────────────────────────────────╯
-```
+<img src="docs/screenshots/overview.png" alt="squeak Overview screen" width="820">
+
+## Screens
+
+Live captures against a real Ultra-Link 8K. Click to expand.
+
+<details>
+<summary><b>DPI</b> — five preset sliders, type or ±step, scaled to the sensor's range</summary>
+
+<img src="docs/screenshots/dpi.png" alt="DPI screen" width="820">
+</details>
+
+<details>
+<summary><b>Polling</b> — 125–8000 Hz, write + read-back verified</summary>
+
+<img src="docs/screenshots/polling.png" alt="Polling screen" width="820">
+</details>
+
+<details>
+<summary><b>Sensor</b> — LOD, scroll dir, motion sync, angle snap, sampling, debounce, sleep</summary>
+
+<img src="docs/screenshots/sensor.png" alt="Sensor screen" width="820">
+</details>
+
+<details>
+<summary><b>Buttons</b> — friendly names + decoded assignment for all 16 slots</summary>
+
+<img src="docs/screenshots/buttons.png" alt="Buttons screen" width="820">
+</details>
+
+<details>
+<summary><b>Profiles</b> — switch the active on-device profile</summary>
+
+<img src="docs/screenshots/profiles.png" alt="Profiles screen" width="820">
+</details>
+
+<details>
+<summary><b>Button picker</b> — assign mouse / media / disable / default</summary>
+
+<img src="docs/screenshots/button-picker.png" alt="Button remap picker modal" width="820">
+</details>
+
+<details>
+<summary><b>Theme picker</b> — live preview, ↵ confirm / esc revert</summary>
+
+<img src="docs/screenshots/theme-picker.png" alt="Theme picker modal" width="820">
+</details>
+
+<details>
+<summary><b>Help</b> — the full keymap (<kbd>?</kbd>)</summary>
+
+<img src="docs/screenshots/help.png" alt="Help overlay" width="820">
+</details>
 
 ## Build
 
