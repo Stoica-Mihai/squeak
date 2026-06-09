@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{List, ListItem, ListState, Paragraph},
 };
 
-use crate::app::{App, StatusLevel};
+use crate::app::App;
 use crate::proto::dpi::DPI_MAX;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
@@ -68,15 +68,9 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(Paragraph::new(footer(app)), rows[2]);
 }
 
-/// Bottom line: the last write result if any, else the legend.
+/// Bottom legend (write results show in the main footer bar).
 fn footer(app: &App) -> Line<'static> {
     let th = app.theme();
-    match app.status.level {
-        StatusLevel::Ok => Line::styled(format!("  {}", app.status.text), Style::default().fg(th.ok)),
-        StatusLevel::Err => Line::styled(format!("  {}", app.status.text), Style::default().fg(th.err)),
-        StatusLevel::Info => {
-            let max = app.settings.as_ref().map(|s| if s.dpi.max > 0 { s.dpi.max } else { DPI_MAX }).unwrap_or(DPI_MAX);
-            Line::styled(format!("  range 50–{max} · step 50 · 5 presets"), Style::default().fg(th.dim))
-        }
-    }
+    let max = app.settings.as_ref().map(|s| if s.dpi.max > 0 { s.dpi.max } else { DPI_MAX }).unwrap_or(DPI_MAX);
+    Line::styled(format!("  range 50–{max} · step 50 · 5 presets"), Style::default().fg(th.dim))
 }

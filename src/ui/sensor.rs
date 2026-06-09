@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{List, ListItem, ListState, Paragraph},
 };
 
-use crate::app::{App, SensorRow, StatusLevel};
+use crate::app::{App, SensorRow};
 use crate::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
@@ -136,12 +136,9 @@ fn footer(app: &App) -> Line<'static> {
             Style::default().fg(th.err).add_modifier(Modifier::BOLD),
         );
     }
-    match app.status.level {
-        StatusLevel::Ok => Line::styled(format!("  {}", app.status.text), Style::default().fg(th.ok)),
-        StatusLevel::Err => Line::styled(format!("  {}", app.status.text), Style::default().fg(th.err)),
-        StatusLevel::Info => Line::styled(
-            "  space toggles · ←→ change · X = factory reset",
-            Style::default().fg(th.dim),
-        ),
-    }
+    // Write results show in the main footer bar; here just the legend.
+    Line::styled(
+        "  space toggles · ←→ change · X = factory reset",
+        Style::default().fg(th.dim),
+    )
 }
