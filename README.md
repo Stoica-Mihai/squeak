@@ -104,10 +104,9 @@ The HID protocol was reverse-engineered from the Keychron Launcher (WebHID) and
 usbmon captures. Per-device maps are in [`docs/`](docs/) —
 [`docs/8k-nordic.md`](docs/8k-nordic.md) is our verified device.
 [`FINDINGS.md`](FINDINGS.md) is the RE log; [`capture.py`](capture.py) is the
-usbmon decoder (`RAW=1` logs every report id).
-
-[`keycron/`](keycron/) is the verified Python reference implementation + CLI
-that squeak ports. [`PLAN.md`](PLAN.md) is the implementation plan.
+usbmon decoder (`RAW=1` logs every report id); the archived Launcher JS bundles
+the protocol was decoded from are in [`docs/launcher/`](docs/launcher/).
+[`PLAN.md`](PLAN.md) is the implementation plan.
 
 ## Status
 
