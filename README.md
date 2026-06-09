@@ -79,6 +79,9 @@ Per screen (content focus):
   macro (modal).
 - **Profiles** — `↑↓` pick, `Enter` activate (reloads the whole config).
 
+`t` opens a theme picker — `↑↓` previews each theme live (the whole UI
+recolors), `↵` confirms, `esc` reverts to the previous one.
+
 `u` checks for a firmware update — the **only** thing that touches the network,
 and only when you press it. It queries the Keychron Launcher API for the latest
 version and shows `✓ latest` / `⬆ X available` on the Overview firmware line
