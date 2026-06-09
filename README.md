@@ -90,7 +90,7 @@ DPI presets · polling rate · sensor (LOD, scroll dir, motion sync, angle snap,
 ripple, sampling mode) · debounce · sleep · button remap (mouse / media /
 keyboard via the reference CLI) · macros (click sequences + text, auto-chunked
 over `0x71`) · profile switching · factory reset. Themes: Mocha, Gruvbox, Nord,
-Tokyo Night (`t`).
+Dracula (`t`).
 
 Gestures / tap-holds / combos are not supported by the M6 (its capability flags
 don't advertise them).

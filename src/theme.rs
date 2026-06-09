@@ -60,17 +60,17 @@ pub const NORD: Theme = Theme {
     err: rgb(0xbf616a),
 };
 
-pub const TOKYO_NIGHT: Theme = Theme {
-    name: "Tokyo Night",
-    bg: rgb(0x1a1b26),
-    fg: rgb(0xc0caf5),
-    dim: rgb(0x565f89),
-    border: rgb(0x414868),
-    accent: rgb(0x7aa2f7),
-    sel_bg: rgb(0x292e42),
-    sel_fg: rgb(0xc0caf5),
-    ok: rgb(0x9ece6a),
-    err: rgb(0xf7768e),
+pub const DRACULA: Theme = Theme {
+    name: "Dracula",
+    bg: rgb(0x282a36),
+    fg: rgb(0xf8f8f2),
+    dim: rgb(0x6272a4),
+    border: rgb(0x44475a),
+    accent: rgb(0xbd93f9),
+    sel_bg: rgb(0x44475a),
+    sel_fg: rgb(0xf8f8f2),
+    ok: rgb(0x50fa7b),
+    err: rgb(0xff5555),
 };
 
-pub const ALL: [Theme; 4] = [MOCHA, GRUVBOX, NORD, TOKYO_NIGHT];
+pub const ALL: [Theme; 4] = [MOCHA, GRUVBOX, NORD, DRACULA];
