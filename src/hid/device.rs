@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use rustix::event::{PollFd, PollFlags, poll};
 
-use crate::hid::HidError;
+use crate::hid::{Hid, HidError};
 
 pub const VID: u16 = 0x3434;
 
@@ -81,8 +81,10 @@ impl Device {
         Err(HidError::Timeout(want_id))
     }
 
-    /// Long-channel READ: `0xB3[cmd, payload…]` -> `0xB4` reply (incl. report id).
-    pub fn get(&mut self, cmd: u8, payload: &[u8]) -> Result<Vec<u8>, HidError> {
+}
+
+impl Hid for Device {
+    fn get(&mut self, cmd: u8, payload: &[u8]) -> Result<Vec<u8>, HidError> {
         let mut p = Vec::with_capacity(1 + payload.len());
         p.push(cmd);
         p.extend_from_slice(payload);
@@ -90,8 +92,7 @@ impl Device {
         self.read_until(LONG_IN, LONG_LEN)
     }
 
-    /// Short-channel WRITE: `0xB5[cmd, payload…]` -> `0xB6` ack. Returns (ok, reply).
-    pub fn set(&mut self, cmd: u8, payload: &[u8]) -> Result<(bool, Vec<u8>), HidError> {
+    fn set(&mut self, cmd: u8, payload: &[u8]) -> Result<(bool, Vec<u8>), HidError> {
         let mut p = Vec::with_capacity(1 + payload.len());
         p.push(cmd);
         p.extend_from_slice(payload);
@@ -101,9 +102,7 @@ impl Device {
         Ok((ok, resp))
     }
 
-    /// WRITE on the long channel (`0xB3`), ack on short (`0xB6` = `E4 00 cmd`).
-    /// Used by button remap.
-    pub fn long_set(&mut self, cmd: u8, payload: &[u8]) -> Result<(bool, Vec<u8>), HidError> {
+    fn long_set(&mut self, cmd: u8, payload: &[u8]) -> Result<(bool, Vec<u8>), HidError> {
         let mut p = Vec::with_capacity(1 + payload.len());
         p.push(cmd);
         p.extend_from_slice(payload);
@@ -116,9 +115,7 @@ impl Device {
         Ok((ok, resp))
     }
 
-    /// WRITE an arbitrary payload on the long channel, return the short reply.
-    /// Used by macro chunking (`0x71`).
-    pub fn long_raw(&mut self, payload: &[u8]) -> Result<Vec<u8>, HidError> {
+    fn long_raw(&mut self, payload: &[u8]) -> Result<Vec<u8>, HidError> {
         self.write_frame(LONG_OUT, LONG_LEN, payload)?;
         self.read_until(SHORT_IN, SHORT_LEN)
     }

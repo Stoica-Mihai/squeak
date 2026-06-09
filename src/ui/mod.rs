@@ -10,6 +10,10 @@ mod profiles;
 mod sensor;
 mod sidebar;
 
+#[cfg(test)]
+#[path = "ui_test.rs"]
+mod tests;
+
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},

@@ -3,7 +3,7 @@
 //! Type 0 = DEFAULT hardware function (not "off"); type 9 = Disable. Every
 //! write reads back and confirms.
 
-use crate::hid::{Device, HidError};
+use crate::hid::{Hid, HidError};
 
 const CMD_SET_BUTTON: u8 = 0x52;
 const CMD_GET_BUTTON: u8 = 0x62;
@@ -86,7 +86,7 @@ fn be24(v: u32) -> [u8; 3] {
     [(v >> 16) as u8, (v >> 8) as u8, v as u8]
 }
 
-pub fn get_button(dev: &mut Device, id: u8) -> Result<ButtonInfo, HidError> {
+pub fn get_button(dev: &mut dyn Hid, id: u8) -> Result<ButtonInfo, HidError> {
     let r = dev.get(CMD_GET_BUTTON, &[id])?;
     if r.len() < 8 || r[1] != CMD_GET_BUTTON {
         return Err(HidError::BadReply(format!("button get: unexpected reply {r:02x?}")));
@@ -138,11 +138,11 @@ pub fn friendly_name(id: u8) -> Option<&'static str> {
     }
 }
 
-pub fn get_all(dev: &mut Device, count: usize) -> Result<Vec<ButtonInfo>, HidError> {
+pub fn get_all(dev: &mut dyn Hid, count: usize) -> Result<Vec<ButtonInfo>, HidError> {
     (0..count as u8).map(|id| get_button(dev, id)).collect()
 }
 
-pub fn set_button(dev: &mut Device, id: u8, type_id: u8, data: u32) -> Result<ButtonInfo, HidError> {
+pub fn set_button(dev: &mut dyn Hid, id: u8, type_id: u8, data: u32) -> Result<ButtonInfo, HidError> {
     let d = be24(data);
     let (ok, resp) = dev.long_set(CMD_SET_BUTTON, &[id, 0, type_id, d[0], d[1], d[2]])?;
     if !ok {
@@ -156,7 +156,7 @@ pub fn set_button(dev: &mut Device, id: u8, type_id: u8, data: u32) -> Result<Bu
 }
 
 /// Assign a mouse action by name. Returns the confirmed button state.
-pub fn set_mouse(dev: &mut Device, id: u8, action: &str) -> Result<ButtonInfo, HidError> {
+pub fn set_mouse(dev: &mut dyn Hid, id: u8, action: &str) -> Result<ButtonInfo, HidError> {
     let data = MOUSE_ACTIONS
         .iter()
         .find(|(n, _)| *n == action)
@@ -167,7 +167,7 @@ pub fn set_mouse(dev: &mut Device, id: u8, action: &str) -> Result<ButtonInfo, H
 
 /// Assign a media action by name. Data = `(consumer_code << 16) | 0x00FF`
 /// (matches the device's stored format, e.g. Vol+ = 0xe900ff).
-pub fn set_media(dev: &mut Device, id: u8, action: &str) -> Result<ButtonInfo, HidError> {
+pub fn set_media(dev: &mut dyn Hid, id: u8, action: &str) -> Result<ButtonInfo, HidError> {
     let code = MEDIA_ACTIONS
         .iter()
         .find(|(n, _)| *n == action)
@@ -177,12 +177,12 @@ pub fn set_media(dev: &mut Device, id: u8, action: &str) -> Result<ButtonInfo, H
 }
 
 /// Turn a button OFF (no action).
-pub fn disable(dev: &mut Device, id: u8) -> Result<ButtonInfo, HidError> {
+pub fn disable(dev: &mut dyn Hid, id: u8) -> Result<ButtonInfo, HidError> {
     set_button(dev, id, TYPE_DISABLE, 0)
 }
 
 /// Restore a button's default hardware function (type 0).
-pub fn restore_default(dev: &mut Device, id: u8) -> Result<ButtonInfo, HidError> {
+pub fn restore_default(dev: &mut dyn Hid, id: u8) -> Result<ButtonInfo, HidError> {
     let (ok, resp) = dev.long_set(CMD_SET_BUTTON, &[id, 0, 0, 0, 0, 0])?;
     if !ok {
         return Err(HidError::BadReply(format!("restore rejected: {resp:02x?}")));
@@ -191,61 +191,5 @@ pub fn restore_default(dev: &mut Device, id: u8) -> Result<ButtonInfo, HidError>
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn be24_split() {
-        assert_eq!(be24(0x010000), [0x01, 0x00, 0x00]);
-        assert_eq!(be24(0x00fe00), [0x00, 0xfe, 0x00]);
-    }
-
-    #[test]
-    #[ignore = "dumps live button slots (read-only)"]
-    fn live_dump_buttons() {
-        use crate::hid::{Device, find_config};
-        let info = find_config().expect("device");
-        let mut dev = Device::open(&info.node).expect("open");
-        for b in get_all(&mut dev, COUNT).unwrap() {
-            eprintln!("id {:2}  type {:2} ({:11})  data 0x{:06x}", b.id, b.type_id, type_name(b.type_id), b.data);
-        }
-    }
-
-    #[test]
-    fn mouse_name_roundtrip() {
-        assert_eq!(mouse_name(0x010000), Some("left"));
-        assert_eq!(mouse_name(0x00fe00), Some("downScroll"));
-        assert_eq!(mouse_name(0x123456), None);
-    }
-
-    /// Live: remap a Mouse-type button then restore its exact original value
-    /// (opt-in). Skips if no mouse-type button exists, to avoid wiping a custom
-    /// mapping we can't reproduce:
-    ///   cargo test live_button_roundtrip -- --ignored --nocapture
-    #[test]
-    #[ignore = "writes to a connected device (auto-restores exact value)"]
-    fn live_button_roundtrip() {
-        use crate::hid::{Device, find_config};
-
-        let info = find_config().expect("config device not found");
-        let mut dev = Device::open(&info.node).expect("open hidraw");
-        let all = get_all(&mut dev, COUNT).expect("read buttons");
-
-        let Some(orig) = all.into_iter().find(|b| b.type_id == TYPE_MOUSE) else {
-            eprintln!("no mouse-type button to test safely; skipping");
-            return;
-        };
-        let id = orig.id;
-        let test_action = if orig.label == "left" { "right" } else { "left" };
-
-        let after = set_mouse(&mut dev, id, test_action).expect("set mouse");
-        assert_eq!(after.label, test_action);
-
-        let restored = set_button(&mut dev, id, orig.type_id, orig.data).expect("restore");
-        assert_eq!(restored.data, orig.data, "restore mismatch");
-        eprintln!(
-            "button {id} remap+restore OK: {} → {test_action} → {}",
-            orig.label, restored.label
-        );
-    }
-}
+#[path = "buttons_test.rs"]
+mod tests;

@@ -231,6 +231,8 @@ pub struct App {
     pub status: Status,
     pub conn: Conn,
     pub fw_check: FwCheck,
+    /// A manual refresh is in flight (clears the "refreshing…" status on result).
+    refreshing: bool,
     pub settings: Option<Settings>,
     pub last_update: Option<Instant>,
     pub focus: Focus,
@@ -277,6 +279,7 @@ impl App {
             },
             conn: Conn::Connecting,
             fw_check: FwCheck::Idle,
+            refreshing: false,
             settings: None,
             last_update: None,
             focus: Focus::Sidebar,
@@ -366,6 +369,7 @@ impl App {
                 if self.screen() == Screen::Buttons {
                     self.request_buttons();
                 }
+                self.refreshing = true;
                 self.set_status("refreshing…".into(), StatusLevel::Info);
             }
             Action::ToggleFocus => self.toggle_focus(),
@@ -845,6 +849,13 @@ impl App {
                 }
                 self.settings = Some(*s);
                 self.last_update = Some(Instant::now());
+                if self.refreshing {
+                    self.refreshing = false;
+                    if let Conn::Up { name, .. } = &self.conn {
+                        let msg = format!("connected: {name}");
+                        self.set_status(msg, StatusLevel::Ok);
+                    }
+                }
             }
             Update::Buttons(v) => {
                 self.buttons = v;
@@ -929,51 +940,5 @@ fn seed_sensor(s: &Settings) -> SensorEdit {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::mpsc::channel;
-
-    fn app() -> App {
-        let (tx, _rx) = channel();
-        App::new(tx)
-    }
-
-    #[test]
-    fn vertical_navigates_sections_when_sidebar_focused() {
-        let mut a = app();
-        assert_eq!(a.screen_idx, 0);
-        a.update(Action::Vertical(1));
-        assert_eq!(a.screen_idx, 1);
-        a.update(Action::Vertical(-1));
-        assert_eq!(a.screen_idx, 0);
-        a.update(Action::Vertical(-1)); // wraps to last
-        assert_eq!(a.screen_idx, Screen::ALL.len() - 1);
-    }
-
-    #[test]
-    fn enter_focuses_content_only_on_interactive_screen() {
-        let mut a = app();
-        // Overview (idx 0) is not interactive: Enter stays on sidebar.
-        a.update(Action::Enter);
-        assert_eq!(a.focus, Focus::Sidebar);
-
-        // Move to DPI (interactive) and focus content.
-        a.update(Action::Vertical(1));
-        assert_eq!(a.screen(), Screen::Dpi);
-        a.update(Action::Enter);
-        assert_eq!(a.focus, Focus::Content);
-    }
-
-    #[test]
-    fn vertical_moves_cursor_when_content_focused() {
-        let mut a = app();
-        a.update(Action::Vertical(1)); // -> DPI
-        a.update(Action::Enter); // focus content
-        let section = a.screen_idx;
-        a.update(Action::Vertical(1));
-        assert_eq!(a.screen_idx, section, "section must not change in content focus");
-        assert_eq!(a.dpi_cursor, 1);
-        a.update(Action::Back);
-        assert_eq!(a.focus, Focus::Sidebar);
-    }
-}
+#[path = "app_test.rs"]
+mod tests;

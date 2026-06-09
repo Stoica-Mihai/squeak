@@ -5,12 +5,13 @@
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::{self, JoinHandle};
 
-use crate::hid::{Device, DeviceInfo, find_config};
+use crate::hid::{Device, DeviceInfo, Hid, HidError, find_config};
 use crate::proto::block::{self, Settings};
 use crate::proto::buttons::{self, ButtonInfo};
 use crate::proto::sensor::SensorFields;
 use crate::proto::{self, Variant, dpi, info, macros, polling, profile, sensor, system};
 
+#[derive(Debug)]
 pub enum Cmd {
     ReadAll,
     ReadButtons,
@@ -94,58 +95,8 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
         }
         let stop = match cmd {
             Cmd::Shutdown => true,
-            Cmd::ReadAll => {
-                let d = dev.as_mut().unwrap();
-                match block::read_all(d) {
-                    Ok(s) => send(&update_tx, Update::Settings(Box::new(s))),
-                    Err(e) => {
-                        dev = None; // drop; reconnect on next command
-                        send(&update_tx, Update::Error(format!("read failed: {e}")))
-                    }
-                }
-            }
-            Cmd::SetDpi { index, value } => {
-                let result = dpi::set_dpi(dev.as_mut().unwrap(), value, index)
-                    .map(|_| format!("DPI preset {} → {value} ✓ verified", index + 1));
-                report_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetRate { hz } => {
-                let result = polling::set_rate(dev.as_mut().unwrap(), hz)
-                    .map(|_| format!("polling → {hz} Hz ✓ verified"));
-                report_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetSensor(fields) => {
-                let result = sensor::set_sensor(dev.as_mut().unwrap(), fields)
-                    .map(|_| "sensor ✓ verified".to_string());
-                report_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetAngle { degrees, enable } => {
-                let result = sensor::set_angle(dev.as_mut().unwrap(), degrees, enable).map(|a| {
-                    if enable {
-                        format!("angle snap → {a}° ✓ verified")
-                    } else {
-                        "angle snap off ✓ verified".to_string()
-                    }
-                });
-                report_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetDebounce(ms) => {
-                let result = system::set_debounce(dev.as_mut().unwrap(), ms)
-                    .map(|v| format!("debounce → {v} ms ✓ verified"));
-                report_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetSleep(secs) => {
-                let result = system::set_sleep(dev.as_mut().unwrap(), secs)
-                    .map(|v| format!("sleep → {v} min ✓ verified"));
-                report_write(&update_tx, &mut dev, result)
-            }
-            Cmd::FactoryReset => {
-                let result = system::factory_reset(dev.as_mut().unwrap())
-                    .map(|_| "factory reset sent".to_string());
-                report_write(&update_tx, &mut dev, result)
-            }
+            // Network check on a detached thread — never blocks device I/O.
             Cmd::CheckUpdate => {
-                // Network check on a detached thread — never blocks device I/O.
                 if let Some((vid, pid)) = ids {
                     let tx = update_tx.clone();
                     std::thread::spawn(move || {
@@ -155,42 +106,20 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
                 }
                 false
             }
-            Cmd::ReadButtons => match buttons::get_all(dev.as_mut().unwrap(), buttons::COUNT) {
-                Ok(v) => send(&update_tx, Update::Buttons(v)),
-                Err(e) => {
-                    dev = None;
-                    send(&update_tx, Update::Error(format!("button read failed: {e}")))
+            other => {
+                let mut closed = false;
+                let mut drop_dev = false;
+                for u in handle(other, dev.as_mut().unwrap()) {
+                    drop_dev |= matches!(u, Update::Error(_));
+                    if send(&update_tx, u) {
+                        closed = true;
+                        break;
+                    }
                 }
-            },
-            Cmd::SetButtonMouse { id, action } => {
-                let result = buttons::set_mouse(dev.as_mut().unwrap(), id, &action)
-                    .map(|b| format!("button {id} → {} ✓ verified", b.label));
-                report_button_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetButtonMedia { id, action } => {
-                let result = buttons::set_media(dev.as_mut().unwrap(), id, &action)
-                    .map(|b| format!("button {id} → {} ✓ verified", b.label));
-                report_button_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetButtonDisable(id) => {
-                let result = buttons::disable(dev.as_mut().unwrap(), id)
-                    .map(|_| format!("button {id} disabled ✓ verified"));
-                report_button_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetButtonDefault(id) => {
-                let result = buttons::restore_default(dev.as_mut().unwrap(), id)
-                    .map(|b| format!("button {id} → {} ✓ verified", b.label));
-                report_button_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetMacro { id, events } => {
-                let result = macros::set_macro(dev.as_mut().unwrap(), id, &events)
-                    .map(|b| format!("macro → button {id} ✓ verified (len {})", b.data));
-                report_button_write(&update_tx, &mut dev, result)
-            }
-            Cmd::SetProfile(index) => {
-                let result = profile::set_profile(dev.as_mut().unwrap(), index)
-                    .map(|i| format!("profile → {} ✓ verified", i + 1));
-                report_write(&update_tx, &mut dev, result)
+                if drop_dev {
+                    dev = None; // drop; reconnect on next command
+                }
+                closed
             }
         };
         if stop {
@@ -199,8 +128,117 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
     }
 }
 
+/// Execute one connected-device command, returning the Updates to emit in
+/// order. An `Update::Error` in the result signals the caller to drop and
+/// reconnect the device. `CheckUpdate`/`Shutdown` are handled by `run`.
+fn handle(cmd: Cmd, dev: &mut dyn Hid) -> Vec<Update> {
+    match cmd {
+        Cmd::ReadAll => match block::read_all(dev) {
+            Ok(s) => vec![Update::Settings(Box::new(s))],
+            Err(e) => vec![Update::Error(format!("read failed: {e}"))],
+        },
+        Cmd::ReadButtons => match buttons::get_all(dev, buttons::COUNT) {
+            Ok(v) => vec![Update::Buttons(v)],
+            Err(e) => vec![Update::Error(format!("button read failed: {e}"))],
+        },
+        Cmd::SetDpi { index, value } => {
+            let r = dpi::set_dpi(dev, value, index)
+                .map(|_| format!("DPI preset {} → {value} ✓ verified", index + 1));
+            write_then_settings(dev, r)
+        }
+        Cmd::SetRate { hz } => {
+            let r = polling::set_rate(dev, hz).map(|_| format!("polling → {hz} Hz ✓ verified"));
+            write_then_settings(dev, r)
+        }
+        Cmd::SetSensor(fields) => {
+            let r = sensor::set_sensor(dev, fields).map(|_| "sensor ✓ verified".to_string());
+            write_then_settings(dev, r)
+        }
+        Cmd::SetAngle { degrees, enable } => {
+            let r = sensor::set_angle(dev, degrees, enable).map(|a| {
+                if enable {
+                    format!("angle snap → {a}° ✓ verified")
+                } else {
+                    "angle snap off ✓ verified".to_string()
+                }
+            });
+            write_then_settings(dev, r)
+        }
+        Cmd::SetDebounce(ms) => {
+            let r = system::set_debounce(dev, ms).map(|v| format!("debounce → {v} ms ✓ verified"));
+            write_then_settings(dev, r)
+        }
+        Cmd::SetSleep(minutes) => {
+            let r = system::set_sleep(dev, minutes).map(|v| format!("sleep → {v} min ✓ verified"));
+            write_then_settings(dev, r)
+        }
+        Cmd::FactoryReset => {
+            let r = system::factory_reset(dev).map(|_| "factory reset sent".to_string());
+            write_then_settings(dev, r)
+        }
+        Cmd::SetProfile(index) => {
+            let r = profile::set_profile(dev, index).map(|i| format!("profile → {} ✓ verified", i + 1));
+            write_then_settings(dev, r)
+        }
+        Cmd::SetButtonMouse { id, action } => {
+            let r = buttons::set_mouse(dev, id, &action)
+                .map(|b| format!("button {id} → {} ✓ verified", b.label));
+            write_then_buttons(dev, r)
+        }
+        Cmd::SetButtonMedia { id, action } => {
+            let r = buttons::set_media(dev, id, &action)
+                .map(|b| format!("button {id} → {} ✓ verified", b.label));
+            write_then_buttons(dev, r)
+        }
+        Cmd::SetButtonDisable(id) => {
+            let r = buttons::disable(dev, id).map(|_| format!("button {id} disabled ✓ verified"));
+            write_then_buttons(dev, r)
+        }
+        Cmd::SetButtonDefault(id) => {
+            let r = buttons::restore_default(dev, id)
+                .map(|b| format!("button {id} → {} ✓ verified", b.label));
+            write_then_buttons(dev, r)
+        }
+        Cmd::SetMacro { id, events } => {
+            let r = macros::set_macro(dev, id, &events)
+                .map(|b| format!("macro → button {id} ✓ verified (len {})", b.data));
+            write_then_buttons(dev, r)
+        }
+        Cmd::CheckUpdate | Cmd::Shutdown => vec![],
+    }
+}
+
 fn send(tx: &Sender<Update>, u: Update) -> bool {
     tx.send(u).is_err()
+}
+
+/// Written status from a write result, then a fresh block snapshot. On a write
+/// error: just the failed status. On a read-back error: an `Update::Error`.
+fn write_then_settings(dev: &mut dyn Hid, result: Result<String, HidError>) -> Vec<Update> {
+    let msg = match result {
+        Ok(msg) => msg,
+        Err(e) => return vec![Update::Written { ok: false, msg: e.to_string() }],
+    };
+    let mut out = vec![Update::Written { ok: true, msg }];
+    match block::read_all(dev) {
+        Ok(s) => out.push(Update::Settings(Box::new(s))),
+        Err(e) => out.push(Update::Error(format!("read failed: {e}"))),
+    }
+    out
+}
+
+/// Like `write_then_settings`, but refreshes the button table after the write.
+fn write_then_buttons(dev: &mut dyn Hid, result: Result<String, HidError>) -> Vec<Update> {
+    let msg = match result {
+        Ok(msg) => msg,
+        Err(e) => return vec![Update::Written { ok: false, msg: e.to_string() }],
+    };
+    let mut out = vec![Update::Written { ok: true, msg }];
+    match buttons::get_all(dev, buttons::COUNT) {
+        Ok(v) => out.push(Update::Buttons(v)),
+        Err(e) => out.push(Update::Error(format!("button read failed: {e}"))),
+    }
+    out
 }
 
 /// Connect, announcing it. Returns the device + (vid, pid). Err(true) = channel
@@ -224,52 +262,6 @@ fn ensure_connected(tx: &Sender<Update>) -> Result<(Device, u16, u16), bool> {
             Ok((d, vid, pid))
         }
         Err(e) => Err(send(tx, Update::Error(e))),
-    }
-}
-
-/// Emit a Written status from a write result, then refresh the snapshot. On a
-/// transport error, drop the device so the next command reconnects.
-fn report_write(
-    tx: &Sender<Update>,
-    dev_slot: &mut Option<Device>,
-    result: Result<String, crate::hid::HidError>,
-) -> bool {
-    let written = match &result {
-        Ok(msg) => Update::Written { ok: true, msg: msg.clone() },
-        Err(e) => Update::Written { ok: false, msg: e.to_string() },
-    };
-    if send(tx, written) {
-        return true;
-    }
-    // Refresh from the device so the UI reflects the committed state.
-    match block::read_all(dev_slot.as_mut().unwrap()) {
-        Ok(s) => send(tx, Update::Settings(Box::new(s))),
-        Err(e) => {
-            *dev_slot = None;
-            send(tx, Update::Error(format!("read failed: {e}")))
-        }
-    }
-}
-
-/// Like `report_write`, but refreshes the button table after the write.
-fn report_button_write(
-    tx: &Sender<Update>,
-    dev_slot: &mut Option<Device>,
-    result: Result<String, crate::hid::HidError>,
-) -> bool {
-    let written = match &result {
-        Ok(msg) => Update::Written { ok: true, msg: msg.clone() },
-        Err(e) => Update::Written { ok: false, msg: e.to_string() },
-    };
-    if send(tx, written) {
-        return true;
-    }
-    match buttons::get_all(dev_slot.as_mut().unwrap(), buttons::COUNT) {
-        Ok(v) => send(tx, Update::Buttons(v)),
-        Err(e) => {
-            *dev_slot = None;
-            send(tx, Update::Error(format!("button read failed: {e}")))
-        }
     }
 }
 
@@ -299,3 +291,7 @@ fn connect() -> Result<(DeviceInfo, Device), String> {
         )),
     }
 }
+
+#[cfg(test)]
+#[path = "worker_test.rs"]
+mod tests;

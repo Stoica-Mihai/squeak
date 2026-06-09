@@ -2,7 +2,7 @@
 //! `keycron/polling.py`. Launcher "Levels: 6": 0=125 1=500 2=1000 3=2000
 //! 4=4000 5=8000 (no 250). Every write reads back and confirms.
 
-use crate::hid::{Device, HidError};
+use crate::hid::{Hid, HidError};
 
 pub const RATES_HZ: [u32; 6] = [125, 500, 1000, 2000, 4000, 8000];
 
@@ -21,7 +21,7 @@ pub fn code_from_hz(hz: u32) -> Option<u8> {
     RATES_HZ.iter().position(|&h| h == hz).map(|i| i as u8)
 }
 
-pub fn get_rate_code(dev: &mut Device) -> Result<u8, HidError> {
+pub fn get_rate_code(dev: &mut dyn Hid) -> Result<u8, HidError> {
     let r = dev.get(CMD_GET_BLOCK, &[])?;
     if r.len() <= RATE_OFF || r[1] != CMD_GET_BLOCK {
         return Err(HidError::BadReply(format!("polling get: unexpected reply {r:02x?}")));
@@ -37,7 +37,7 @@ fn set_payload(code: u8) -> Vec<u8> {
 }
 
 /// Set polling rate to `hz`. Re-reads to confirm.
-pub fn set_rate(dev: &mut Device, hz: u32) -> Result<u32, HidError> {
+pub fn set_rate(dev: &mut dyn Hid, hz: u32) -> Result<u32, HidError> {
     let code = code_from_hz(hz)
         .ok_or_else(|| HidError::BadReply(format!("unsupported rate {hz}; choose {RATES_HZ:?}")))?;
 
@@ -57,20 +57,5 @@ pub fn set_rate(dev: &mut Device, hz: u32) -> Result<u32, HidError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn set_payload_layout() {
-        assert_eq!(set_payload(2), vec![2, 2, 0, 1, 2, 3, 4, 5, 6]);
-    }
-
-    #[test]
-    fn code_hz_roundtrip() {
-        for (code, &hz) in RATES_HZ.iter().enumerate() {
-            assert_eq!(code_from_hz(hz), Some(code as u8));
-            assert_eq!(hz_from_code(code as u8), Some(hz));
-        }
-        assert_eq!(code_from_hz(250), None);
-    }
-}
+#[path = "polling_test.rs"]
+mod tests;

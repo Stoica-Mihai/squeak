@@ -6,7 +6,7 @@
 //! surface the fields the Overview doesn't yet read.
 #![allow(dead_code)]
 
-use crate::hid::{Device, HidError};
+use crate::hid::{Hid, HidError};
 
 pub const CMD_GET_BLOCK: u8 = 0x06;
 
@@ -159,7 +159,7 @@ pub fn parse(b: &[u8]) -> Result<Settings, HidError> {
     })
 }
 
-pub fn read_all(dev: &mut Device) -> Result<Settings, HidError> {
+pub fn read_all(dev: &mut dyn Hid) -> Result<Settings, HidError> {
     let r = dev.get(CMD_GET_BLOCK, &[])?;
     if r.len() < 2 || r[1] != CMD_GET_BLOCK {
         return Err(HidError::BadReply(format!("block read: unexpected reply {r:02x?}")));
@@ -167,89 +167,44 @@ pub fn read_all(dev: &mut Device) -> Result<Settings, HidError> {
     parse(&r[1..])
 }
 
+/// Synthetic 0x06 body matching docs/8k-nordic.md offsets. Not a captured frame
+/// — locks the offset map and is reused as a fixture by app/ui tests.
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Synthetic body matching docs/8k-nordic.md field offsets. Not a captured
-    /// frame — locks the offset map. Replace with a real usbmon capture if one
-    /// gets recorded.
-    fn sample() -> Vec<u8> {
-        let mut b = vec![0u8; 63];
-        b[0] = 0x06;
-        b[1] = 2; // profile.current
-        b[50] = 5; // profile.count
-        b[2] = 0x13; // active level0 = 3, polling code = 1 (500 Hz)
-        b[3] = 0x04; // active level1 = 4, polling code = 0
-        b[4] = 0x00;
-        // DPI presets 400/800/1600/4250/5000 (LE16)
-        for (i, v) in [400u16, 800, 1600, 4250, 5000].iter().enumerate() {
-            b[5 + 2 * i] = (*v & 0xff) as u8;
-            b[6 + 2 * i] = (*v >> 8) as u8;
-        }
-        b[16] = 5; // dpi.count
-        // sensor byte: lod=2, motion(bit4)=1, scroll_dir(bit6)=1
-        b[15] = 0b0101_0010;
-        b[17] = 10; // debounce
-        b[18] = 30; // sleep_min
-        b[19] = 0x80 | 85; // battery 85%, charging
-        b[26] = 0x2f; // support flags
-        b[42] = 0; // step -> defaults to 50
-        b[43..49].copy_from_slice(&[0, 1, 2, 3, 4, 5]);
-        b[49] = 6; // polling count
-        b[51] = 0b1101_0000; // wake bits 4,6,7 set: key, mv, side_scroll (not scroll)
-        b[52] = 1; // fps20k
-        b[55] = 10; // angle
-        b
+pub(crate) fn sample_block() -> Vec<u8> {
+    let mut b = vec![0u8; 63];
+    b[0] = 0x06;
+    b[1] = 2; // profile.current
+    b[50] = 5; // profile.count
+    b[2] = 0x13; // active level0 = 3, polling code = 1 (500 Hz)
+    b[3] = 0x04; // active level1 = 4, polling code = 0
+    b[4] = 0x00;
+    // DPI presets 400/800/1600/4250/5000 (LE16)
+    for (i, v) in [400u16, 800, 1600, 4250, 5000].iter().enumerate() {
+        b[5 + 2 * i] = (*v & 0xff) as u8;
+        b[6 + 2 * i] = (*v >> 8) as u8;
     }
-
-    #[test]
-    fn parses_known_offsets() {
-        let s = parse(&sample()).unwrap();
-        assert_eq!(s.profile.current, 2);
-        assert_eq!(s.profile.count, 5);
-        assert_eq!(s.dpi.presets, [400, 800, 1600, 4250, 5000]);
-        assert_eq!(s.dpi.active_levels, [3, 4, 0]);
-        assert_eq!(s.dpi.count, 5);
-        assert_eq!(s.dpi.step, 50);
-        assert_eq!(s.polling.levels, [1, 0, 0]);
-        assert_eq!(s.polling.rate_codes, vec![0, 1, 2, 3, 4, 5]);
-        assert_eq!(s.sensor.lod, 2);
-        assert_eq!(s.sensor.motion_sync, 1);
-        assert_eq!(s.sensor.scroll_dir, 1);
-        assert_eq!(s.sensor.fps20k, 1);
-        assert_eq!(s.sensor.angle, 10);
-        assert_eq!(s.debounce.value, 10);
-        assert_eq!(s.sleep_min, 30);
-        assert_eq!(s.battery.percent, 85);
-        assert!(s.battery.charging);
-        assert!(s.wake.key && s.wake.mv && s.wake.side_scroll && !s.wake.scroll);
-    }
-
-    #[test]
-    fn rejects_short_body() {
-        assert!(parse(&[0x06, 0x00]).is_err());
-    }
-
-    #[test]
-    fn polling_hz_maps() {
-        assert_eq!(crate::proto::polling::hz_from_code(5), Some(8000));
-        assert_eq!(crate::proto::polling::hz_from_code(1), Some(500));
-        assert_eq!(crate::proto::polling::hz_from_code(9), None);
-    }
-
-    /// Live round-trip against real hardware (opt-in):
-    ///   cargo test live_read -- --ignored --nocapture
-    #[test]
-    #[ignore = "requires a connected Keychron device"]
-    fn live_read() {
-        use crate::hid::{Device, find_config};
-        let info = find_config().expect("config device not found");
-        let mut dev = Device::open(&info.node).expect("open hidraw");
-        let s = read_all(&mut dev).expect("read block");
-        assert!(s.battery.percent <= 100, "battery {} > 100", s.battery.percent);
-        assert!(s.dpi.presets.iter().all(|&p| p <= 26000), "preset out of range: {:?}", s.dpi.presets);
-        let fw = crate::proto::info::read_version(&mut dev).unwrap_or_else(|_| "?".into());
-        eprintln!("live device: {} ({:04x}:{:04x}) fw {fw}\n{s:#?}", info.name, info.vid, info.pid);
-    }
+    b[16] = 5; // dpi.count
+    // sensor byte: lod=2, motion(bit4)=1, scroll_dir(bit6)=1
+    b[15] = 0b0101_0010;
+    b[17] = 10; // debounce
+    b[18] = 30; // sleep_min
+    b[19] = 0x80 | 85; // battery 85%, charging
+    b[26] = 0x2f; // support flags
+    b[42] = 0; // step -> defaults to 50
+    b[43..49].copy_from_slice(&[0, 1, 2, 3, 4, 5]);
+    b[49] = 6; // polling count
+    b[51] = 0b1101_0000; // wake bits 4,6,7 set: key, mv, side_scroll (not scroll)
+    b[52] = 1; // fps20k
+    b[55] = 10; // angle
+    b
 }
+
+/// Parsed fixture `Settings` for tests in other modules.
+#[cfg(test)]
+pub(crate) fn sample_settings() -> Settings {
+    parse(&sample_block()).unwrap()
+}
+
+#[cfg(test)]
+#[path = "block_test.rs"]
+mod tests;
