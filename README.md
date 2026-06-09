@@ -23,7 +23,9 @@ VID `0x3434`), verified live on firmware 0.1.6.
 
 ## Build
 
-Rust 2024 (toolchain ≥ 1.85). No C dependencies — pure-std `/dev/hidraw`.
+Rust 2024 (toolchain ≥ 1.85). No C dependencies — pure-std `/dev/hidraw` for
+device I/O. (The opt-in `u` update check pulls in `ureq`/`rustls`; everything
+else is offline.)
 
 ```bash
 cargo build --release
@@ -64,7 +66,7 @@ focus.
 | `↑ ↓` | sidebar: change section · content: move row/selection |
 | `→` / `Enter` | sidebar: enter content · content: apply / open picker |
 | `Esc` | back to the sidebar |
-| `r` | refresh from device · `t` theme · `?` help · `X` factory reset · `q` quit |
+| `r` | refresh from device · `t` theme · `u` check firmware update · `?` help · `X` factory reset · `q` quit |
 
 Per screen (content focus):
 
@@ -76,6 +78,11 @@ Per screen (content focus):
   (Mouse / Media / Disable / Default), `d` default, `x` disable, `m` record a
   macro (modal).
 - **Profiles** — `↑↓` pick, `Enter` activate (reloads the whole config).
+
+`u` checks for a firmware update — the **only** thing that touches the network,
+and only when you press it. It queries the Keychron Launcher API for the latest
+version and shows `✓ latest` / `⬆ X available` on the Overview firmware line
+(silent if offline). squeak does not flash firmware.
 
 ## Features
 
