@@ -70,8 +70,9 @@ cargo install --git https://github.com/Stoica-Mihai/squeak --locked
 ```
 
 This drops `squeak` in `~/.cargo/bin` (make sure that's on your `PATH`). No C
-dependencies — pure-std `/dev/hidraw` for device I/O; the opt-in `u` update
-check pulls in `ureq`/`rustls`, everything else is offline.
+dependencies — pure-std `/dev/hidraw` for device I/O; the opt-in `u` firmware
+check (looks up the latest version online — it does not flash) pulls in
+`ureq`/`rustls`, everything else is offline.
 
 Then set up [permissions](#permissions) once and you're done.
 
@@ -123,7 +124,7 @@ focus.
 | `↑ ↓` | sidebar: change section · content: move row/selection |
 | `→` / `Enter` | sidebar: enter content · content: apply / open picker |
 | `Esc` | back to the sidebar |
-| `r` | refresh from device · `t` theme · `u` check firmware update · `?` help · `X` factory reset · `q` quit |
+| `r` | refresh from device · `t` theme · `u` check firmware version (online) · `?` help · `X` factory reset · `q` quit |
 
 Per screen (content focus):
 
