@@ -144,7 +144,7 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
     spans.push(key("t "));
     spans.push(lbl("theme  "));
     spans.push(key("u "));
-    spans.push(lbl("update  "));
+    spans.push(lbl("check fw  "));
     spans.push(key("? "));
     spans.push(lbl("help  "));
     spans.push(key("q "));
