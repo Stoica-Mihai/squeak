@@ -188,6 +188,8 @@ pub enum Modal {
     MacroEdit,
     /// Diff confirmation before applying pending sensor edits.
     ConfirmSensor,
+    /// Theme picker with live preview.
+    ThemePicker,
     Help,
 }
 
@@ -224,6 +226,8 @@ pub struct App {
     pub running: bool,
     pub screen_idx: usize,
     pub theme_idx: usize,
+    /// Committed theme to roll back to if the picker is cancelled.
+    theme_saved: usize,
     pub status: Status,
     pub conn: Conn,
     pub fw_check: FwCheck,
@@ -266,6 +270,7 @@ impl App {
             running: true,
             screen_idx: 0,
             theme_idx: 0,
+            theme_saved: 0,
             status: Status {
                 text: "connecting…".into(),
                 level: StatusLevel::Info,
@@ -353,8 +358,8 @@ impl App {
         match action {
             Action::Quit => self.running = false,
             Action::CycleTheme => {
-                self.theme_idx = (self.theme_idx + 1) % theme::ALL.len();
-                self.set_status(format!("theme: {}", self.theme().name), StatusLevel::Info);
+                self.theme_saved = self.theme_idx; // rollback point
+                self.modal = Some(Modal::ThemePicker);
             }
             Action::Refresh => {
                 self.request_read();
@@ -556,6 +561,16 @@ impl App {
                 Action::Enter => self.apply_sensor_row(),
                 Action::Back => {}
                 _ => self.modal = Some(Modal::ConfirmSensor),
+            },
+            Modal::ThemePicker => match action {
+                // ↑↓ live-previews by applying the highlighted theme.
+                Action::Vertical(d) => {
+                    self.theme_idx = clamp_idx(self.theme_idx, d, theme::ALL.len());
+                    self.modal = Some(Modal::ThemePicker);
+                }
+                Action::Enter | Action::Confirm => {} // commit: keep theme_idx, close
+                Action::Back | Action::Cancel => self.theme_idx = self.theme_saved, // revert
+                _ => self.modal = Some(Modal::ThemePicker),
             },
             Modal::Help => match action {
                 Action::Cancel | Action::Back | Action::Help | Action::Enter => {}

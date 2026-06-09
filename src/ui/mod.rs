@@ -302,6 +302,20 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
             f.render_widget(block, area);
             macros::render(f, inner, app);
         }
+        Modal::ThemePicker => {
+            let area = centered(f.area(), 28, crate::theme::ALL.len() as u16 + 5);
+            f.render_widget(Clear, area);
+            let block = modal_block(" Theme ".into(), th.accent, th);
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+            let mut lines = vec![Line::from("")];
+            for (i, t) in crate::theme::ALL.iter().enumerate() {
+                lines.push(row_line(t.name, i == app.theme_idx, th));
+            }
+            lines.push(Line::from(""));
+            lines.push(Line::styled("  ↵ apply · esc cancel", Style::default().fg(th.dim)));
+            f.render_widget(Paragraph::new(lines), inner);
+        }
         Modal::Help => {
             let area = centered(f.area(), 50, 18);
             f.render_widget(Clear, area);
@@ -325,7 +339,7 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
                 help("m", "button: record a macro"),
                 help("i", "macro: text input"),
                 help("r", "refresh from device"),
-                help("t", "cycle theme"),
+                help("t", "theme picker (live preview)"),
                 help("u", "check firmware update (online)"),
                 help("X", "factory reset"),
                 help("q", "quit"),
