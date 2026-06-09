@@ -61,31 +61,48 @@ Live captures against a real Ultra-Link 8K. Click to expand.
 <img src="docs/screenshots/help.png" alt="Help overlay" width="820">
 </details>
 
-## Build
+## Install
 
-Rust 2024 (toolchain ≥ 1.85). No C dependencies — pure-std `/dev/hidraw` for
-device I/O. (The opt-in `u` update check pulls in `ureq`/`rustls`; everything
-else is offline.)
+Needs a Rust toolchain ≥ 1.85 (edition 2024). One command:
 
 ```bash
+cargo install --git https://github.com/Stoica-Mihai/squeak --locked
+```
+
+This drops `squeak` in `~/.cargo/bin` (make sure that's on your `PATH`). No C
+dependencies — pure-std `/dev/hidraw` for device I/O; the opt-in `u` update
+check pulls in `ureq`/`rustls`, everything else is offline.
+
+Then set up [permissions](#permissions) once and you're done.
+
+### From source
+
+```bash
+git clone https://github.com/Stoica-Mihai/squeak && cd squeak
 cargo build --release
 ./target/release/squeak
 ```
 
 ## Permissions
 
-hidraw needs group access (the browser Launcher needs this too). Ship a udev
-rule, then replug the dongle:
-
-```
-# /etc/udev/rules.d/99-keychron.rules
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"
-```
+hidraw needs group access (the browser Launcher needs this too). The repo
+ships the rule at [`packaging/99-keychron.rules`](packaging/99-keychron.rules):
 
 ```bash
+sudo curl -o /etc/udev/rules.d/99-keychron.rules \
+  https://raw.githubusercontent.com/Stoica-Mihai/squeak/main/packaging/99-keychron.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger --action=add
 # replug the dongle
 ```
+
+The rule (for reference):
+
+```
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"
+```
+
+Your user must be in the `input` group (`groups | grep input`; if not,
+`sudo usermod -aG input $USER` and re-login).
 
 (If a config node exists but `open` fails with EACCES, squeak shows the fix.)
 

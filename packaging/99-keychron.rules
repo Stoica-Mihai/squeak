@@ -1,0 +1,5 @@
+# Grant group access to Keychron HID config interfaces (VID 0x3434).
+# Install: sudo cp packaging/99-keychron.rules /etc/udev/rules.d/
+# then: sudo udevadm control --reload-rules && sudo udevadm trigger --action=add
+# (replug the dongle afterwards)
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"
