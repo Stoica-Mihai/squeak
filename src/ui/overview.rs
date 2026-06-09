@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 
-use crate::app::{App, Conn};
+use crate::app::{App, Conn, FwCheck};
 use crate::proto::polling;
 
 const LABEL_W: usize = 9;
@@ -23,15 +23,26 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
     let mut lines = Vec::new();
 
-    // Header: name · transport · firmware
+    // Header: name · transport · firmware [· update tag]
     if let Conn::Up { name, transport, firmware, .. } = &app.conn {
-        lines.push(Line::from(vec![
+        let mut hdr = vec![
             Span::styled(name.clone(), Style::default().fg(th.fg).add_modifier(Modifier::BOLD)),
             Span::styled("  ·  ", Style::default().fg(th.dim)),
             Span::styled(transport.to_string(), Style::default().fg(th.fg)),
             Span::styled("  ·  firmware ", Style::default().fg(th.dim)),
             Span::styled(firmware.clone(), Style::default().fg(th.accent)),
-        ]));
+        ];
+        match &app.fw_check {
+            FwCheck::Idle => {}
+            FwCheck::Checking => hdr.push(Span::styled("  (checking…)", Style::default().fg(th.dim))),
+            FwCheck::UpToDate => hdr.push(Span::styled("  ✓ latest", Style::default().fg(th.ok))),
+            FwCheck::Available(v) => hdr.push(Span::styled(
+                format!("  ⬆ {v} available"),
+                Style::default().fg(th.accent).add_modifier(Modifier::BOLD),
+            )),
+            FwCheck::Failed => hdr.push(Span::styled("  (check failed — offline?)", Style::default().fg(th.dim))),
+        }
+        lines.push(Line::from(hdr));
     }
     lines.push(Line::from(""));
 

@@ -27,6 +27,7 @@ pub enum Cmd {
     SetMacro { id: u8, events: Vec<u8> },
     SetProfile(u8),
     FactoryReset,
+    CheckUpdate,
     Shutdown,
 }
 
@@ -36,6 +37,8 @@ pub enum Update {
     Buttons(Vec<ButtonInfo>),
     /// Result of a write, after read-back. Drives the ✓/✗ status line.
     Written { ok: bool, msg: String },
+    /// Opt-in firmware check result; None = lookup failed/offline.
+    Firmware { latest: Option<String> },
     Error(String),
 }
 
@@ -69,6 +72,7 @@ impl Drop for Worker {
 
 fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
     let mut dev: Option<Device> = None;
+    let mut ids: Option<(u16, u16)> = None; // (vid, pid) for the update check
     while let Ok(cmd) = cmd_rx.recv() {
         if matches!(cmd, Cmd::Shutdown) {
             break;
@@ -76,7 +80,10 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
         // Ensure connected before any device command.
         if dev.is_none() {
             match ensure_connected(&update_tx) {
-                Ok(d) => dev = Some(d),
+                Ok((d, vid, pid)) => {
+                    dev = Some(d);
+                    ids = Some((vid, pid));
+                }
                 Err(stop) => {
                     if stop {
                         break;
@@ -137,6 +144,17 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
                     .map(|_| "factory reset sent".to_string());
                 report_write(&update_tx, &mut dev, result)
             }
+            Cmd::CheckUpdate => {
+                // Network check on a detached thread — never blocks device I/O.
+                if let Some((vid, pid)) = ids {
+                    let tx = update_tx.clone();
+                    std::thread::spawn(move || {
+                        let latest = crate::update::latest_version(vid, pid).ok();
+                        let _ = tx.send(Update::Firmware { latest });
+                    });
+                }
+                false
+            }
             Cmd::ReadButtons => match buttons::get_all(dev.as_mut().unwrap(), buttons::COUNT) {
                 Ok(v) => send(&update_tx, Update::Buttons(v)),
                 Err(e) => {
@@ -185,23 +203,25 @@ fn send(tx: &Sender<Update>, u: Update) -> bool {
     tx.send(u).is_err()
 }
 
-/// Connect, announcing it. Err(true) = channel closed (stop); Err(false) = retry later.
-fn ensure_connected(tx: &Sender<Update>) -> Result<Device, bool> {
+/// Connect, announcing it. Returns the device + (vid, pid). Err(true) = channel
+/// closed (stop); Err(false) = retry later.
+fn ensure_connected(tx: &Sender<Update>) -> Result<(Device, u16, u16), bool> {
     match connect() {
         Ok((di, mut d)) => {
+            let (vid, pid) = (di.vid, di.pid);
             let variant = proto::detect(di.usage_page);
             let name = if di.name.is_empty() {
-                format!("Keychron {:04x}:{:04x}", di.vid, di.pid)
+                format!("Keychron {vid:04x}:{pid:04x}")
             } else {
                 dedupe_words(&di.name)
             };
             // 0xD0xx PIDs are the 2.4 GHz dongle transport; 0x06xx are wired.
-            let transport = if di.pid >= 0xD000 { "2.4 GHz" } else { "wired" };
+            let transport = if pid >= 0xD000 { "2.4 GHz" } else { "wired" };
             let firmware = info::read_version(&mut d).unwrap_or_else(|_| "?".into());
             if send(tx, Update::Connected { name, variant, firmware, transport }) {
                 return Err(true);
             }
-            Ok(d)
+            Ok((d, vid, pid))
         }
         Err(e) => Err(send(tx, Update::Error(e))),
     }

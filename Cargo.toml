@@ -17,6 +17,9 @@ anyhow = "1"
 thiserror = "2"
 # poll() for timeout reads on hidraw; pure-Rust, keeps the static-binary goal.
 rustix = { version = "0.38", features = ["event"] }
+# opt-in firmware update check only (network); rustls so the binary stays static.
+ureq = { version = "2", features = ["tls", "json"] }
+serde_json = "1"
 
 # rust-poc/ is a separate throwaway crate; keep it out of this package.
 [workspace]

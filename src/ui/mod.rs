@@ -143,6 +143,8 @@ fn render_footer(f: &mut Frame, area: Rect, app: &App) {
     spans.push(lbl("refresh  "));
     spans.push(key("t "));
     spans.push(lbl("theme  "));
+    spans.push(key("u "));
+    spans.push(lbl("update  "));
     spans.push(key("? "));
     spans.push(lbl("help  "));
     spans.push(key("q "));
@@ -301,7 +303,7 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
             macros::render(f, inner, app);
         }
         Modal::Help => {
-            let area = centered(f.area(), 50, 16);
+            let area = centered(f.area(), 50, 18);
             f.render_widget(Clear, area);
             let block = modal_block(" Help ".into(), th.accent, th);
             let inner = block.inner(area);
@@ -324,6 +326,7 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
                 help("i", "macro: text input"),
                 help("r", "refresh from device"),
                 help("t", "cycle theme"),
+                help("u", "check firmware update (online)"),
                 help("X", "factory reset"),
                 help("q", "quit"),
                 Line::from(""),

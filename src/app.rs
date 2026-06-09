@@ -198,6 +198,15 @@ pub enum Conn {
     Down(String),
 }
 
+/// Opt-in firmware-update check state (triggered by `u`).
+pub enum FwCheck {
+    Idle,
+    Checking,
+    UpToDate,
+    Available(String),
+    Failed,
+}
+
 /// Transient status-line message; severity drives its color.
 pub struct Status {
     pub text: String,
@@ -217,6 +226,7 @@ pub struct App {
     pub theme_idx: usize,
     pub status: Status,
     pub conn: Conn,
+    pub fw_check: FwCheck,
     pub settings: Option<Settings>,
     pub last_update: Option<Instant>,
     pub focus: Focus,
@@ -261,6 +271,7 @@ impl App {
                 level: StatusLevel::Info,
             },
             conn: Conn::Connecting,
+            fw_check: FwCheck::Idle,
             settings: None,
             last_update: None,
             focus: Focus::Sidebar,
@@ -376,6 +387,12 @@ impl App {
                 Focus::Content => self.apply_edit(),
             },
             Action::ResetPrompt => self.modal = Some(Modal::ConfirmReset),
+            Action::CheckUpdate => {
+                if matches!(self.conn, Conn::Up { .. }) {
+                    let _ = self.cmd_tx.send(Cmd::CheckUpdate);
+                    self.fw_check = FwCheck::Checking;
+                }
+            }
             Action::Help => self.modal = Some(Modal::Help),
             Action::SetDefault => self.button_action(Cmd::SetButtonDefault, "restoring default…"),
             Action::SetDisable => self.button_action(Cmd::SetButtonDisable, "disabling…"),
@@ -800,6 +817,7 @@ impl App {
                 };
                 self.set_status(format!("connected: {name}{warn}"), StatusLevel::Ok);
                 self.conn = Conn::Up { name, firmware, transport };
+                self.fw_check = FwCheck::Idle;
             }
             Update::Settings(s) => {
                 // Reseed editors from the device unless the user has unsaved edits.
@@ -825,8 +843,20 @@ impl App {
                     self.sensor_dirty = false; // next Settings reseeds the sensor editor
                 }
             }
+            Update::Firmware { latest } => {
+                let current = match &self.conn {
+                    Conn::Up { firmware, .. } => firmware.clone(),
+                    _ => return,
+                };
+                self.fw_check = match latest {
+                    Some(v) if v == current => FwCheck::UpToDate,
+                    Some(v) => FwCheck::Available(v),
+                    None => FwCheck::Failed,
+                };
+            }
             Update::Error(e) => {
                 self.settings = None;
+                self.fw_check = FwCheck::Idle;
                 self.set_status(
                     e.lines().next().unwrap_or("error").to_string(),
                     StatusLevel::Err,

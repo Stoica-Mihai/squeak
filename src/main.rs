@@ -7,6 +7,7 @@ mod hid;
 mod proto;
 mod theme;
 mod ui;
+mod update;
 mod worker;
 
 use std::time::{Duration, Instant};

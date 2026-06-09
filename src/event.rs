@@ -37,6 +37,8 @@ pub enum Action {
     TextInput,
     /// Toggle the help overlay.
     Help,
+    /// Opt-in: check for a firmware update (network).
+    CheckUpdate,
 }
 
 pub fn map_key(key: KeyEvent) -> Action {
@@ -63,6 +65,7 @@ pub fn map_key(key: KeyEvent) -> Action {
         KeyCode::Backspace | KeyCode::Delete => Action::Remove,
         KeyCode::Char('i') => Action::TextInput,
         KeyCode::Char('?') => Action::Help,
+        KeyCode::Char('u') => Action::CheckUpdate,
         KeyCode::Char('t') => Action::CycleTheme,
         KeyCode::Char('r') => Action::Refresh,
         _ => Action::None,
