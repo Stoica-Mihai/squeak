@@ -314,11 +314,16 @@ fn render_modal(f: &mut Frame, app: &App, modal: &Modal) {
             f.render_widget(block, area);
             let mut lines = vec![Line::from("")];
             for (i, t) in crate::theme::ALL.iter().enumerate() {
-                lines.push(row_line(t.name, i == app.theme_idx, th));
+                let style = if i == app.theme_idx {
+                    Style::default().fg(th.accent).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(th.fg)
+                };
+                lines.push(Line::styled(t.name, style));
             }
             lines.push(Line::from(""));
-            lines.push(Line::styled("  ↵ apply · esc cancel", Style::default().fg(th.dim)));
-            f.render_widget(Paragraph::new(lines), inner);
+            lines.push(Line::styled("↵ apply · esc cancel", Style::default().fg(th.dim)));
+            f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), inner);
         }
         Modal::Help => {
             let area = centered(f.area(), 50, 18);
