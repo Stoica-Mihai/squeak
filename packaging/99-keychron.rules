@@ -1,5 +1,9 @@
-# Grant group access to Keychron HID config interfaces (VID 0x3434).
-# Install: sudo cp packaging/99-keychron.rules /etc/udev/rules.d/
-# then: sudo udevadm control --reload-rules && sudo udevadm trigger --action=add
-# (replug the dongle afterwards)
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"
+# Keychron M6 / Ultra-Link 8K HID config access (VID 0x3434).
+#   TAG+="uaccess" grants the active desktop login automatically (systemd-logind);
+#   GROUP="input" is the fallback for headless/ssh sessions.
+# Install:
+#   sudo cp packaging/99-keychron.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger --action=add
+#   (replug the dongle afterwards)
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", ATTRS{idProduct}=="d028", MODE="0660", GROUP="input", TAG+="uaccess"  # Ultra-Link 8K dongle (2.4 GHz)
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", ATTRS{idProduct}=="d049", MODE="0660", GROUP="input", TAG+="uaccess"  # M6 wired

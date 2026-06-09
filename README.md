@@ -96,14 +96,17 @@ sudo udevadm control --reload-rules && sudo udevadm trigger --action=add
 # replug the dongle
 ```
 
-The rule (for reference):
+The rule (for reference) scopes to the M6's product IDs and tags them
+`uaccess`, which grants the active desktop login automatically:
 
 ```
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", MODE="0660", GROUP="input"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", ATTRS{idProduct}=="d028", MODE="0660", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", ATTRS{idProduct}=="d049", MODE="0660", GROUP="input", TAG+="uaccess"
 ```
 
-Your user must be in the `input` group (`groups | grep input`; if not,
-`sudo usermod -aG input $USER` and re-login).
+On a normal desktop session that's all you need. Headless/ssh (where `uaccess`
+doesn't apply) falls back to the `input` group — join it with
+`sudo usermod -aG input $USER` and re-login.
 
 (If a config node exists but `open` fails with EACCES, squeak shows the fix.)
 
