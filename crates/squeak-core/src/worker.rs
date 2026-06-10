@@ -290,12 +290,13 @@ fn connect() -> Result<(DeviceInfo, Device), String> {
             .to_string());
     }
 
-    // Probe each config node; an idle transport (e.g. the dongle while the
-    // mouse is on the cable) opens but never answers, so skip it.
+    // Probe each config node with a real block read (needs the live mouse) —
+    // an idle transport (e.g. the dongle while the mouse is on the cable) still
+    // answers a version read from cache, so version alone isn't a liveness test.
     let mut last = String::new();
     for info in candidates {
         match Device::open(&info.node) {
-            Ok(mut d) => match info::read_version(&mut d) {
+            Ok(mut d) => match block::read_all(&mut d) {
                 Ok(_) => return Ok((info, d)),
                 Err(_) => last = format!("{} did not respond (idle transport?)", info.node),
             },
