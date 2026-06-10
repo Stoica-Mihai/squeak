@@ -332,16 +332,24 @@ function dpi(m) {
   );
   const stepper = el("div", "dpi-stepper");
   const minus = el("button", "step", "−");
-  const num = el("span", "dpi-num", String(val));
+  const num = el("input", "dpi-num");
+  num.type = "text";
+  num.inputMode = "numeric";
+  num.value = String(val);
+  num.title = "click to type a value";
   const plus = el("button", "step", "+");
   minus.onclick = () => setDpiVal(sel, val - 50);
   plus.onclick = () => setDpiVal(sel, val + 50);
+  const commit = () => { const n = parseInt(num.value, 10); if (!Number.isNaN(n)) setDpiVal(sel, n); };
+  num.onchange = commit;
+  num.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); num.blur(); } };
+  num.onfocus = () => num.select();
   stepper.append(minus, num, plus);
 
   const slider = el("input");
   slider.type = "range"; slider.min = 50; slider.max = max; slider.step = 50; slider.value = val;
   slider.className = "dpi-slider";
-  slider.oninput = () => { num.textContent = slider.value; };
+  slider.oninput = () => { num.value = slider.value; };
   slider.onchange = () => setDpiVal(sel, +slider.value);
 
   const ticks = el("div", "dpi-ticks");
