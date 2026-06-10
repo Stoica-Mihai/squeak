@@ -599,10 +599,12 @@ function openPicker(b) {
 function friendlyError(raw) {
   const m = String(raw).toLowerCase();
   if (m.includes("no such device") || m.includes("os error 19")) return "Mouse disconnected.";
-  if (m.includes("permission") || m.includes("eacces") || m.includes("os error 13"))
-    return "Permission denied — install the udev rule (see README).";
+  // Connect failure (covers a transient EACCES as a node vanishes) → no device,
+  // not a udev problem. Checked before the permission branch on purpose.
   if (m.includes("not found") || m.includes("no responding"))
     return "No mouse found — connect the cable or dongle (and unplug the unused one).";
+  if (m.includes("permission") || m.includes("eacces") || m.includes("os error 13"))
+    return "Permission denied opening the device — check the udev rule (see README).";
   if (m.includes("timeout")) return "Mouse not responding — reconnect it, then refresh.";
   if (m.includes("unconfirmed")) return "The device didn't confirm the change — try again.";
   if (m.includes("rejected")) return "The device rejected that value.";
