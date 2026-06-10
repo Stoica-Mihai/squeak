@@ -142,6 +142,16 @@ tr.empty td { color: var(--dim); }
 .pick-hint { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; color: var(--sub); }
 .modal .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
+/* polling bar chart */
+.poll-chart { display: flex; align-items: flex-end; gap: 12px; height: 320px; padding: 8px 4px 0; }
+.poll-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; cursor: pointer; }
+.poll-bar { border-radius: 8px 8px 0 0; transition: filter .12s, transform .12s; }
+.poll-col:hover .poll-bar { filter: brightness(1.15); }
+.poll-col.active .poll-bar { box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(137,180,250,.25); }
+.poll-hz { text-align: center; margin-top: 8px; color: var(--sub); font-size: 13px; font-variant-numeric: tabular-nums; }
+.poll-col.active .poll-hz { color: var(--accent); font-weight: 700; }
+.poll-ends { display: flex; justify-content: space-between; color: var(--dim); font-size: 12px; margin-top: 4px; padding: 0 4px; }
+
 /* footer keybar */
 .keys { display: flex; gap: 18px; background: var(--surface); border-top: 1px solid var(--line); padding: 10px 18px; color: var(--dim); font-size: 13px; flex: 0 0 auto; }
 .keys .grp { display: flex; align-items: center; gap: 6px; }

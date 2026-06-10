@@ -316,16 +316,32 @@ function dpi(m) {
 
 function polling(m) {
   const s = state.settings;
-  const row = el("div", "row");
-  row.appendChild(el("span", "label", "Polling rate"));
-  const seg = el("div", "seg");
-  state.palettes.rates.forEach((hz) => {
-    const b = el("button", hz === s.pollingHz ? "on" : "", String(hz));
-    b.onclick = () => invoke("set_rate", { hz });
-    seg.appendChild(b);
+  const rates = state.palettes.rates;
+  const active = s.pollingHz;
+  const n = rates.length;
+
+  const chart = el("div", "poll-chart");
+  rates.forEach((hz, i) => {
+    const on = hz === active;
+    const col = el("div", "poll-col" + (on ? " active" : ""));
+    const bar = el("div", "poll-bar");
+    bar.style.height = `${22 + (i / (n - 1)) * 78}%`;
+    if (on) {
+      bar.style.background = "linear-gradient(180deg, var(--accent), #74a0f0)";
+    } else {
+      // Office (blue) → Gaming (red) ramp via purple, muted for inactive bars.
+      const hue = 220 + (i / (n - 1)) * 140; // 220→360 (blue→purple→red)
+      bar.style.background = `linear-gradient(180deg, hsl(${hue} 40% 36%), hsl(${hue} 40% 26%))`;
+    }
+    col.append(bar, el("div", "poll-hz", `${hz}Hz${on ? " ✓" : ""}`));
+    col.onclick = () => invoke("set_rate", { hz });
+    chart.appendChild(col);
   });
-  row.appendChild(seg);
-  m.appendChild(row);
+  m.appendChild(chart);
+
+  const ends = el("div", "poll-ends");
+  ends.append(el("span", null, "Office"), el("span", null, "Gaming"));
+  m.appendChild(ends);
 }
 
 function sensor(m) {
