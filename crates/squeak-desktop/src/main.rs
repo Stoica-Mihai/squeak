@@ -176,6 +176,7 @@ fn main() {
         .setup(|app| {
             let worker = Worker::spawn();
             app.manage(AppState { tx: worker.cmd_tx.clone() });
+            squeak_core::watch::spawn(worker.cmd_tx.clone()); // auto-refresh on plug/unplug
 
             let handle = app.handle().clone();
             // Drain worker updates → Tauri events. Worker is moved in and lives

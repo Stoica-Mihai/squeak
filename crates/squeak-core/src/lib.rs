@@ -4,4 +4,5 @@
 pub mod hid;
 pub mod proto;
 pub mod update;
+pub mod watch;
 pub mod worker;

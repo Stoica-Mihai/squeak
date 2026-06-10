@@ -29,6 +29,7 @@ fn main() -> Result<()> {
 
 fn run(terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
     let worker = Worker::spawn();
+    squeak_core::watch::spawn(worker.cmd_tx.clone()); // auto-refresh on plug/unplug
     let mut app = App::new(worker.cmd_tx.clone());
     app.request_read(); // initial snapshot
 
