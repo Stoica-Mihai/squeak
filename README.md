@@ -37,6 +37,13 @@ curl -fsSL https://raw.githubusercontent.com/Stoica-Mihai/squeak/main/install.sh
 
 Or do it manually — see each frontend's README below.
 
+Uninstall:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Stoica-Mihai/squeak/main/uninstall.sh | bash
+# keep the udev rule: ... | KEEP_UDEV=1 bash
+```
+
 ## Layout
 
 ```
