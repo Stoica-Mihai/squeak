@@ -73,7 +73,8 @@ async function wireEvents() {
       toast(v ? `firmware: latest is ${v}` : "firmware check failed (offline?)", v ? "ok" : "err");
     }),
     listen("error", (e) => {
-      $("device").textContent = "disconnected";
+      $("device").textContent = "Disconnected";
+      $("meta").textContent = "";
       toast(friendlyError(e.payload.message), "err");
     }),
   ]);
