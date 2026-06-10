@@ -2,8 +2,8 @@
 
 The desktop frontend — a [Tauri 2](https://tauri.app) app: a Rust backend over
 [`squeak-core`](../squeak-core) with a static HTML/CSS/JS UI rendered in the
-OS WebKit view. Same verified protocol as the TUI, with the full premium look
-(cards, gradient sliders, theme picker). See the [root README](../../README.md)
+OS WebKit view. Same verified protocol as the TUI, rendered with CSS — cards,
+gradient sliders, theme picker. See the [root README](../../README.md)
 for the project overview, permissions, and protocol.
 
 Click-and-keyboard driven, needs a graphical session (no SSH/headless).

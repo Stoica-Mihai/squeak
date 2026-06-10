@@ -9,7 +9,7 @@ Two frontends share one verified core (`squeak-core`):
 | | |
 |---|---|
 | **[`squeak`](crates/squeak-tui/README.md)** (terminal UI) | ratatui, SSH-able, tiny, no GUI needed |
-| **[`squeak-desktop`](crates/squeak-desktop/README.md)** (desktop app) | Tauri + WebKit, full premium look |
+| **[`squeak-desktop`](crates/squeak-desktop/README.md)** (desktop app) | Tauri + WebKit, graphical window |
 
 First-class target: **Keychron M6 8K / Ultra-Link 8K dongle** (`8k_nordic`,
 VID `0x3434`), verified live over cable + 2.4 GHz. Plug/unplug is detected
