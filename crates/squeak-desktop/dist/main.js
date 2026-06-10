@@ -445,34 +445,48 @@ function profiles(m) {
 
 // ---- button picker modal ---------------------------------------------------
 
+const ACTION_LABELS = {
+  leftDouble: "Double-click",
+  upScroll: "Scroll ↑", downScroll: "Scroll ↓",
+  leftScroll: "Scroll ←", rightScroll: "Scroll →",
+};
+function pretty(n) {
+  return ACTION_LABELS[n] || n.charAt(0).toUpperCase() + n.slice(1);
+}
+
 function openPicker(b) {
   let kind = "mouse";
   let action = null;
   const scrim = el("div", "scrim");
-  const modal = el("div", "modal");
+  const modal = el("div", "modal picker");
   modal.appendChild(el("h3", null, `Assign button ${b.id}${b.friendly ? " · " + b.friendly : ""}`));
 
-  const kindSeg = el("div", "seg");
+  modal.appendChild(el("div", "picker-label", "Type"));
+  const kindSeg = el("div", "seg kind");
+  const actionLabel = el("div", "picker-label", "Action");
   const opts = el("div", "opts");
   const renderOpts = () => {
+    const list = kind === "mouse" || kind === "media";
+    actionLabel.textContent = list ? "Action" : kind === "disable" ? "Disabled" : "Default";
+    opts.className = list ? "opts" : "opts hint";
     opts.innerHTML = "";
-    if (kind === "mouse" || kind === "media") {
+    if (list) {
       for (const name of state.palettes[kind]) {
-        const o = el("div", "opt" + (name === action ? " sel" : ""), name);
+        const o = el("div", "opt" + (name === action ? " sel" : ""), pretty(name));
         o.onclick = () => { action = name; renderOpts(); };
         opts.appendChild(o);
       }
     } else {
-      opts.appendChild(el("p", "sub", kind === "disable" ? "Button does nothing." : "Restore hardware default."));
+      opts.appendChild(el("div", "pick-hint",
+        kind === "disable" ? "This button will do nothing." : "Restore the button's hardware default function."));
     }
   };
   for (const k of ["mouse", "media", "disable", "default"]) {
-    const kb = el("button", k === kind ? "on" : "", k);
-    kb.onclick = () => { kind = k; action = null; [...kindSeg.children].forEach((c) => c.classList.toggle("on", c.textContent === k)); renderOpts(); };
+    const kb = el("button", k === kind ? "on" : "", pretty(k));
+    kb.onclick = () => { kind = k; action = null; [...kindSeg.children].forEach((c) => c.classList.toggle("on", c === kb)); renderOpts(); };
     kindSeg.appendChild(kb);
   }
-  modal.appendChild(kindSeg);
-  modal.appendChild(opts);
+  modal.append(kindSeg, actionLabel, opts);
   renderOpts();
 
   const actions = el("div", "actions");
