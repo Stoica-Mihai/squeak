@@ -39,20 +39,11 @@ body {
 .dev { font-weight: 600; }
 .meta { color: var(--sub); font-size: 13px; }
 .spacer { flex: 1; }
-/* drawn battery glyph: body + terminal nub, proportional fill */
-.battery {
-  position: relative; display: inline-flex; align-items: center;
-  width: 30px; height: 15px; padding: 2px;
-  border: 2px solid var(--sub); border-radius: 4px;
-}
-.battery::after {
-  content: ""; position: absolute; right: -5px; top: 3.5px;
-  width: 3px; height: 5px; background: var(--sub); border-radius: 0 2px 2px 0;
-}
-.batt-fill { height: 100%; width: 100%; background: var(--green); border-radius: 1px; transition: width .3s, background .3s; }
-.batt-bolt { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: #11111b; font-size: 11px; font-weight: 900; }
-.batt-bolt.on { display: flex; }
-.batt { color: var(--text); font-weight: 700; font-size: 13px; min-width: 38px; }
+/* segmented battery bar — same ▰ glyphs as the mockup */
+.gauge { font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 15px; letter-spacing: -1px; }
+.batt-on { color: var(--green); }
+.batt-off { color: var(--line); }
+.batt { color: var(--green); font-weight: 700; font-size: 13px; min-width: 38px; }
 
 .body { flex: 1; display: flex; min-height: 0; }
 
