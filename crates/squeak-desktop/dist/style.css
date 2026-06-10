@@ -196,7 +196,7 @@ tr.empty td { color: var(--dim); }
 
 /* toast */
 .toast { position: fixed; top: 54px; right: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
-.toast .t { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 10px 14px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: slide .2s ease; }
+.toast .t { max-width: 340px; background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 10px 14px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: slide .2s ease; }
 .toast .t.ok { border-left-color: var(--green); }
 .toast .t.err { border-left-color: var(--red); }
 @keyframes slide { from { transform: translateY(8px); opacity: 0; } }

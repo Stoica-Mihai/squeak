@@ -74,7 +74,7 @@ async function wireEvents() {
     }),
     listen("error", (e) => {
       $("device").textContent = "disconnected";
-      toast(e.payload.message, "err");
+      toast(String(e.payload.message).split("\n")[0], "err"); // first line only
     }),
   ]);
 }
