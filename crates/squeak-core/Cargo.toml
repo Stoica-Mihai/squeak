@@ -1,0 +1,21 @@
+[package]
+name = "squeak-core"
+description = "Keychron mouse HID protocol + device worker (squeak core)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "squeak_core"
+
+[features]
+# Exposes test fixtures (e.g. sample_settings) to dependent crates' tests.
+fixtures = []
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+rustix.workspace = true
+ureq.workspace = true
+serde_json.workspace = true

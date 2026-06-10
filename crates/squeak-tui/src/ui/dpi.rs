@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::app::App;
-use crate::proto::dpi::DPI_MAX;
+use squeak_core::proto::dpi::DPI_MAX;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();

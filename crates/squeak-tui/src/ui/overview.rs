@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::app::{App, Conn, FwCheck};
-use crate::proto::polling;
+use squeak_core::proto::polling;
 
 const LABEL_W: usize = 9;
 

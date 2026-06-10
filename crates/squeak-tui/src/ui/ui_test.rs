@@ -1,9 +1,9 @@
 use crate::app::App;
 use crate::event::Action;
-use crate::proto::Variant;
-use crate::proto::block;
-use crate::proto::buttons::ButtonInfo;
-use crate::worker::Update;
+use squeak_core::proto::Variant;
+use squeak_core::proto::block;
+use squeak_core::proto::buttons::ButtonInfo;
+use squeak_core::worker::Update;
 use ratatui::{Terminal, backend::TestBackend};
 
 fn buttons() -> Vec<ButtonInfo> {

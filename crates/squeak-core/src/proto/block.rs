@@ -169,8 +169,8 @@ pub fn read_all(dev: &mut dyn Hid) -> Result<Settings, HidError> {
 
 /// Synthetic 0x06 body matching docs/8k-nordic.md offsets. Not a captured frame
 /// — locks the offset map and is reused as a fixture by app/ui tests.
-#[cfg(test)]
-pub(crate) fn sample_block() -> Vec<u8> {
+#[cfg(any(test, feature = "fixtures"))]
+pub fn sample_block() -> Vec<u8> {
     let mut b = vec![0u8; 63];
     b[0] = 0x06;
     b[1] = 2; // profile.current
@@ -199,9 +199,9 @@ pub(crate) fn sample_block() -> Vec<u8> {
     b
 }
 
-/// Parsed fixture `Settings` for tests in other modules.
-#[cfg(test)]
-pub(crate) fn sample_settings() -> Settings {
+/// Parsed fixture `Settings` for tests in other crates/modules.
+#[cfg(any(test, feature = "fixtures"))]
+pub fn sample_settings() -> Settings {
     parse(&sample_block()).unwrap()
 }
 

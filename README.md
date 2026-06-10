@@ -66,7 +66,7 @@ Live captures against a real Ultra-Link 8K. Click to expand.
 Needs a Rust toolchain ≥ 1.85 (edition 2024). One command:
 
 ```bash
-cargo install --git https://github.com/Stoica-Mihai/squeak --locked
+cargo install --git https://github.com/Stoica-Mihai/squeak squeak-tui --locked
 ```
 
 This drops `squeak` in `~/.cargo/bin` (make sure that's on your `PATH`). No C

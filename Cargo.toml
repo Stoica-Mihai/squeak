@@ -1,18 +1,15 @@
-[package]
-name = "squeak"
+[workspace]
+resolver = "2"
+members = ["crates/squeak-core", "crates/squeak-tui"]
+exclude = ["rust-poc"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
-description = "Terminal configurator for Keychron mice on Linux (8k_nordic verified)"
 license = "MIT"
 repository = "https://github.com/Stoica-Mihai/squeak"
-default-run = "squeak"
 
-[[bin]]
-name = "squeak"
-path = "src/main.rs"
-
-[dependencies]
-ratatui = "0.29"
+[workspace.dependencies]
 anyhow = "1"
 thiserror = "2"
 # poll() for timeout reads on hidraw; pure-Rust, keeps the static-binary goal.
@@ -20,8 +17,5 @@ rustix = { version = "0.38", features = ["event"] }
 # opt-in firmware update check only (network); rustls so the binary stays static.
 ureq = { version = "2", features = ["tls", "json"] }
 serde_json = "1"
-
-# rust-poc/ is a separate throwaway crate; keep it out of this package.
-[workspace]
-members = ["."]
-exclude = ["rust-poc"]
+ratatui = "0.29"
+squeak-core = { path = "crates/squeak-core" }

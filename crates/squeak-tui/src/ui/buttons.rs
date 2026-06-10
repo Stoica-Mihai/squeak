@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::app::App;
-use crate::proto::buttons::{friendly_name, is_present, type_name};
+use squeak_core::proto::buttons::{friendly_name, is_present, type_name};
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();

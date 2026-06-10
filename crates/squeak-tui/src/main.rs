@@ -3,12 +3,8 @@
 
 mod app;
 mod event;
-mod hid;
-mod proto;
 mod theme;
 mod ui;
-mod update;
-mod worker;
 
 use std::time::{Duration, Instant};
 
@@ -17,7 +13,7 @@ use ratatui::crossterm::event::{self as ct, Event, KeyCode, KeyEventKind};
 
 use crate::app::App;
 use crate::event::map_key;
-use crate::worker::Worker;
+use squeak_core::worker::Worker;
 
 /// Event-poll interval (UI responsiveness floor).
 const TICK: Duration = Duration::from_millis(100);

@@ -7,15 +7,15 @@ use std::sync::mpsc::Sender;
 use std::time::Instant;
 
 use crate::event::Action;
-use crate::proto::Variant;
-use crate::proto::block::Settings;
-use crate::proto::buttons::{ButtonInfo, MEDIA_ACTIONS, MOUSE_ACTIONS};
-use crate::proto::dpi::{DPI_MAX, DPI_MIN, NUM_PRESETS};
-use crate::proto::macros::{self, MOUSE_PALETTE};
-use crate::proto::polling::RATES_HZ;
-use crate::proto::sensor::SensorFields;
+use squeak_core::proto::Variant;
+use squeak_core::proto::block::Settings;
+use squeak_core::proto::buttons::{ButtonInfo, MEDIA_ACTIONS, MOUSE_ACTIONS};
+use squeak_core::proto::dpi::{DPI_MAX, DPI_MIN, NUM_PRESETS};
+use squeak_core::proto::macros::{self, MOUSE_PALETTE};
+use squeak_core::proto::polling::RATES_HZ;
+use squeak_core::proto::sensor::SensorFields;
 use crate::theme::{self, Theme};
-use crate::worker::{Cmd, Update};
+use squeak_core::worker::{Cmd, Update};
 
 const LOD_MAX: u8 = 2;
 const ANGLE_MAX: u8 = 90;

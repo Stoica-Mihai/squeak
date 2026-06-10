@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::app::App;
-use crate::proto::polling::RATES_HZ;
+use squeak_core::proto::polling::RATES_HZ;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let th = app.theme();

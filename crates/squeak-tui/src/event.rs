@@ -3,7 +3,7 @@
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::proto::dpi::DPI_STEP;
+use squeak_core::proto::dpi::DPI_STEP;
 
 pub enum Action {
     None,

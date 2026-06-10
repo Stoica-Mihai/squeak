@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 use crate::app::App;
-use crate::proto::macros::MOUSE_PALETTE;
+use squeak_core::proto::macros::MOUSE_PALETTE;
 
 fn name_for(code: u8) -> &'static str {
     MOUSE_PALETTE.iter().find(|(_, c)| *c == code).map(|(n, _)| *n).unwrap_or("?")

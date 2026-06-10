@@ -723,15 +723,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
-name = "squeak"
+name = "squeak-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ratatui",
  "rustix",
  "serde_json",
  "thiserror",
  "ureq",
+]
+
+[[package]]
+name = "squeak-tui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ratatui",
+ "squeak-core",
 ]
 
 [[package]]

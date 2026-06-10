@@ -1,6 +1,6 @@
 use super::*;
-use crate::proto::block;
-use crate::proto::buttons::ButtonInfo;
+use squeak_core::proto::block;
+use squeak_core::proto::buttons::ButtonInfo;
 use std::sync::mpsc::{Receiver, channel};
 
 fn app() -> App {

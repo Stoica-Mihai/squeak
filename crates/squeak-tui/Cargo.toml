@@ -1,0 +1,21 @@
+[package]
+name = "squeak-tui"
+description = "Terminal UI for configuring Keychron mice (squeak)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+default-run = "squeak"
+
+[[bin]]
+name = "squeak"
+path = "src/main.rs"
+
+[dependencies]
+ratatui.workspace = true
+anyhow.workspace = true
+squeak-core.workspace = true
+
+[dev-dependencies]
+# fixtures feature exposes squeak_core::proto::block::sample_settings to tests.
+squeak-core = { workspace = true, features = ["fixtures"] }
