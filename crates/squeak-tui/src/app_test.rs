@@ -135,6 +135,21 @@ fn sensor_toggle_marks_diff_and_confirm_applies() {
 }
 
 #[test]
+fn left_lock_blocks_left_button_remap() {
+    let (mut a, _rx) = connected();
+    for _ in 0..4 {
+        a.update(Action::Vertical(1)); // -> Buttons
+    }
+    a.update(Action::Enter); // content; cursor on button 0 (Left)
+    assert!(a.left_lock);
+    a.update(Action::Enter); // picker blocked while locked
+    assert!(a.modal.is_none());
+    a.update(Action::ToggleLock);
+    a.update(Action::Enter); // now it opens
+    assert!(matches!(a.modal, Some(Modal::ButtonPicker(_))));
+}
+
+#[test]
 fn button_picker_disable_sends_cmd() {
     let (mut a, rx) = connected();
     for _ in 0..4 {
@@ -142,6 +157,7 @@ fn button_picker_disable_sends_cmd() {
     }
     assert_eq!(a.screen(), Screen::Buttons);
     a.update(Action::Enter); // content
+    a.update(Action::ToggleLock); // left button is lock-protected by default
     a.update(Action::Enter); // open picker on button 0
     assert!(matches!(a.modal, Some(Modal::ButtonPicker(_))));
     a.update(Action::Vertical(1));

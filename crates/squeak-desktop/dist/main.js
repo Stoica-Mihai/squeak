@@ -31,6 +31,7 @@ const THEMES = [
 const state = {
   screen: "overview",
   theme: 0,
+  leftLock: true,
   settings: null,
   buttons: [],
   palettes: { mouse: [], media: [], rates: [125, 500, 1000, 2000, 4000, 8000] },
@@ -382,24 +383,43 @@ function numRow(label, value, min, max, on) {
 }
 
 function buttons(m) {
+  m.appendChild(lockBar());
   if (!state.buttons.length) { m.appendChild(el("p", "sub", "loading buttons…")); return; }
   const table = el("table");
   const head = el("tr");
   ["id", "button", "type", "assignment", ""].forEach((h) => head.appendChild(el("th", null, h)));
   table.appendChild(head);
   for (const b of state.buttons) {
-    const tr = el("tr", "btn-row" + (b.present ? "" : " empty"));
+    const locked = b.id === 0 && state.leftLock; // left button protected
+    const tr = el("tr", "btn-row" + (b.present ? "" : " empty") + (locked ? " locked" : ""));
     tr.append(
       el("td", null, String(b.id)),
       el("td", null, b.friendly || ""),
       tagCell(b.typeName, b.typeId),
       el("td", null, b.label),
-      el("td", null, b.present ? "›" : ""),
+      el("td", null, locked ? "🔒" : b.present ? "›" : ""),
     );
-    if (b.present) tr.onclick = () => openPicker(b);
+    if (b.present && !locked) tr.onclick = () => openPicker(b);
     table.appendChild(tr);
   }
   m.appendChild(table);
+}
+
+// UI-side guard (matches the Launcher): while on, the left button can't be remapped.
+function lockBar() {
+  const bar = el("div", "lock-bar");
+  const txt = el("div");
+  txt.append(el("div", "lock-title", "Left Click Lock"),
+    el("div", "sub", "While on, the left button cannot be remapped."));
+  const sw = el("label", "switch");
+  const u = el("span", "sw-lbl" + (state.leftLock ? "" : " on"), "Unlock");
+  const track = el("span", "track" + (state.leftLock ? " on" : ""));
+  track.appendChild(el("span", "knob"));
+  const l = el("span", "sw-lbl" + (state.leftLock ? " on" : ""), "Lock");
+  sw.append(u, track, l);
+  sw.onclick = () => { state.leftLock = !state.leftLock; render(); };
+  bar.append(txt, sw);
+  return bar;
 }
 
 function tagCell(name, typeId) {

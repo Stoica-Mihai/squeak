@@ -251,6 +251,8 @@ pub struct App {
     // Buttons
     pub buttons: Vec<ButtonInfo>,
     pub button_cursor: usize,
+    /// UI guard: while on, the left button (id 0) can't be remapped.
+    pub left_lock: bool,
 
     // Profiles
     pub profile_cursor: usize,
@@ -290,6 +292,7 @@ impl App {
             sensor_dirty: false,
             buttons: Vec::new(),
             button_cursor: 0,
+            left_lock: true,
             profile_cursor: 0,
             macro_target: None,
             macro_palette: 0,
@@ -406,6 +409,11 @@ impl App {
             Action::SetDefault => self.button_action(Cmd::SetButtonDefault, "restoring default…"),
             Action::SetDisable => self.button_action(Cmd::SetButtonDisable, "disabling…"),
             Action::RecordMacro => self.start_macro_for_selected_button(),
+            Action::ToggleLock => {
+                self.left_lock = !self.left_lock;
+                let msg = if self.left_lock { "left-click lock: on" } else { "left-click lock: off" };
+                self.set_status(msg.into(), StatusLevel::Info);
+            }
             Action::TextInput => {
                 if self.screen() == Screen::Dpi {
                     self.text_buf.clear();
@@ -419,6 +427,10 @@ impl App {
     /// `m` on a button: target it and open the macro editor modal.
     fn start_macro_for_selected_button(&mut self) {
         if !self.on_buttons_content() {
+            return;
+        }
+        if self.left_locked() {
+            self.set_status("left-click locked — press L to unlock".into(), StatusLevel::Info);
             return;
         }
         self.macro_target = Some(self.buttons[self.button_cursor].id);
@@ -500,8 +512,17 @@ impl App {
     }
 
     /// Send a per-button command for the selected button (Buttons content only).
+    /// Selected row is the left button while the lock is on.
+    fn left_locked(&self) -> bool {
+        self.left_lock && self.buttons.get(self.button_cursor).is_some_and(|b| b.id == 0)
+    }
+
     fn button_action(&mut self, make: impl Fn(u8) -> Cmd, status: &str) {
         if !self.on_buttons_content() {
+            return;
+        }
+        if self.left_locked() {
+            self.set_status("left-click locked — press L to unlock".into(), StatusLevel::Info);
             return;
         }
         let id = self.buttons[self.button_cursor].id;
@@ -511,6 +532,10 @@ impl App {
 
     fn open_button_picker(&mut self) {
         if self.buttons.is_empty() {
+            return;
+        }
+        if self.left_locked() {
+            self.set_status("left-click locked — press L to unlock".into(), StatusLevel::Info);
             return;
         }
         self.modal = Some(Modal::ButtonPicker(Picker {

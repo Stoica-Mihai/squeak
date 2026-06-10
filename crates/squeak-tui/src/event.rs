@@ -39,6 +39,8 @@ pub enum Action {
     Help,
     /// Opt-in: check for a firmware update (network).
     CheckUpdate,
+    /// Buttons: toggle the left-click lock (protects the left button).
+    ToggleLock,
 }
 
 pub fn map_key(key: KeyEvent) -> Action {
@@ -68,6 +70,7 @@ pub fn map_key(key: KeyEvent) -> Action {
         KeyCode::Char('u') => Action::CheckUpdate,
         KeyCode::Char('t') => Action::CycleTheme,
         KeyCode::Char('r') => Action::Refresh,
+        KeyCode::Char('L') => Action::ToggleLock,
         _ => Action::None,
     }
 }

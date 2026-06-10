@@ -39,12 +39,14 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         .buttons
         .iter()
         .map(|b| {
+            let locked = b.id == 0 && app.left_lock;
             let text = format!(
-                "{id:>2}  {name:<9}  {ty:<11}  {label}",
+                "{id:>2}  {name:<9}  {ty:<11}  {label}{lock}",
                 id = b.id,
                 name = friendly_name(b.id).unwrap_or(""),
                 ty = type_name(b.type_id),
                 label = b.label,
+                lock = if locked { "   🔒 locked" } else { "" },
             );
             let fg = if is_present(b) { th.fg } else { th.dim };
             ListItem::new(Line::styled(text, Style::default().fg(fg)))
@@ -66,7 +68,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         Span::styled("x", Style::default().fg(th.accent)),
         Span::styled(" disable   ", Style::default().fg(th.dim)),
         Span::styled("m", Style::default().fg(th.accent)),
-        Span::styled(" macro", Style::default().fg(th.dim)),
+        Span::styled(" macro   ", Style::default().fg(th.dim)),
+        Span::styled("L", Style::default().fg(th.accent)),
+        Span::styled(
+            if app.left_lock { " left-lock: on" } else { " left-lock: off" },
+            Style::default().fg(th.dim),
+        ),
     ]);
     f.render_widget(Paragraph::new(hint), rows[2]);
 }
