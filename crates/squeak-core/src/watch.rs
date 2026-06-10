@@ -58,7 +58,7 @@ fn open_uevent_socket() -> std::io::Result<libc::c_int> {
 fn run(cmd_tx: &Sender<Cmd>) -> std::io::Result<()> {
     let fd = open_uevent_socket()?;
     let mut buf = [0u8; 8192];
-    let mut last = Instant::now() - Duration::from_secs(1);
+    let mut last: Option<Instant> = None;
     loop {
         let n = unsafe { libc::recv(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0) };
         if n <= 0 {
@@ -66,8 +66,8 @@ fn run(cmd_tx: &Sender<Cmd>) -> std::io::Result<()> {
         }
         let msg = &buf[..n as usize];
         let keychron = msg.windows(KEYCHRON_VID.len()).any(|w| w == KEYCHRON_VID);
-        if keychron && last.elapsed() > DEBOUNCE {
-            last = Instant::now();
+        if keychron && last.is_none_or(|t| t.elapsed() > DEBOUNCE) {
+            last = Some(Instant::now());
             thread::sleep(SETTLE);
             // Worker's connect probe finds the live transport; reconnect+retry
             // covers a node that isn't quite ready yet.
