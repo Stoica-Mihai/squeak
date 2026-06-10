@@ -271,8 +271,12 @@ fn ensure_connected(tx: &Sender<Update>) -> Result<(Device, u16, u16), bool> {
             } else {
                 dedupe_words(&di.name)
             };
-            // 0xD0xx PIDs are the 2.4 GHz dongle transport; 0x06xx are wired.
-            let transport = if pid >= 0xD000 { "2.4 GHz" } else { "wired" };
+            // The Ultra-Link dongle is its own product (0xD028 = wireless);
+            // the M6 enumerating directly (e.g. 0xD049) is the cable.
+            let transport = match pid {
+                0xD028 => "2.4 GHz",
+                _ => "wired",
+            };
             let firmware = info::read_version(&mut d).unwrap_or_else(|_| "?".into());
             if send(tx, Update::Connected { name, variant, firmware, transport }) {
                 return Err(true);
