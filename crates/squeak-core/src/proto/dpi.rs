@@ -79,6 +79,28 @@ pub fn set_dpi(dev: &mut dyn Hid, value: u16, index: usize) -> Result<[u16; NUM_
     Ok(after)
 }
 
+/// Switch the active DPI stage to preset `index` (preserving preset values).
+/// The active byte is part of the 0x40 write; re-reads to confirm.
+pub fn set_active(dev: &mut dyn Hid, index: usize) -> Result<u8, HidError> {
+    if index >= NUM_PRESETS {
+        return Err(HidError::BadReply(format!("preset index {index} out of range")));
+    }
+    let (_, presets) = get_dpi(dev)?;
+    let payload = set_payload(index as u8, &presets);
+    let (ok, resp) = dev.set(CMD_SET_DPI, &payload)?;
+    if !ok {
+        return Err(HidError::BadReply(format!("DPI active set rejected: {resp:02x?}")));
+    }
+    let r = dev.get(CMD_GET_DPI, &[])?;
+    let active = r[ACTIVE_OFF];
+    if active as usize != index {
+        return Err(HidError::BadReply(format!(
+            "DPI active unconfirmed: wanted {index}, read {active}"
+        )));
+    }
+    Ok(active)
+}
+
 #[cfg(test)]
 #[path = "dpi_test.rs"]
 mod tests;

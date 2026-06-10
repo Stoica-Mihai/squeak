@@ -147,14 +147,21 @@ function kvLine(k, v, cls) {
 
 function dpi(m) {
   const s = state.settings;
+  m.appendChild(el("p", "sub", "Activate a preset to use it now; edit a value + Set to change it."));
   s.dpi.presets.forEach((v, i) => {
+    const active = i === s.dpi.active;
     const row = el("div", "row");
-    row.appendChild(el("span", "label", `Preset ${i + 1}${i === s.dpi.active ? "  • active" : ""}`));
+
+    const use = el("button", "use" + (active ? " on" : ""), active ? "● active" : "activate");
+    use.title = "make this the active DPI stage";
+    if (!active) use.onclick = () => invoke("set_active_dpi", { index: i });
+
     const input = el("input");
     input.type = "number"; input.min = 50; input.max = s.dpi.max || 26000; input.step = 50; input.value = v;
     const apply = el("button", "btn primary", "set");
     apply.onclick = () => invoke("set_dpi", { index: i, value: Math.round(+input.value) });
-    row.append(input, apply);
+
+    row.append(use, el("span", "label", `Preset ${i + 1}`), input, apply);
     m.appendChild(row);
   });
 }

@@ -43,6 +43,10 @@ fn set_dpi(index: usize, value: u16, s: State<AppState>) -> Result<(), String> {
     s.send(Cmd::SetDpi { index, value })
 }
 #[tauri::command]
+fn set_active_dpi(index: usize, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetActiveDpi(index))
+}
+#[tauri::command]
 fn set_rate(hz: u32, s: State<AppState>) -> Result<(), String> {
     s.send(Cmd::SetRate { hz })
 }
@@ -188,6 +192,7 @@ fn main() {
             read_all,
             read_buttons,
             set_dpi,
+            set_active_dpi,
             set_rate,
             set_lod,
             set_scroll,

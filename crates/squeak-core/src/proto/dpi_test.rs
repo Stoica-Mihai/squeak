@@ -1,5 +1,20 @@
 use super::*;
 
+/// Live: switch the active DPI stage, confirm, switch back (opt-in):
+///   cargo test live_set_active -- --ignored --nocapture
+#[test]
+#[ignore = "switches the active DPI stage on a connected device (restores)"]
+fn live_set_active() {
+    use crate::hid::{Device, find_config};
+    let info = find_config().expect("config device not found");
+    let mut dev = Device::open(&info.node).expect("open hidraw");
+    let (orig, _) = get_dpi(&mut dev).unwrap();
+    let other = if orig == 0 { 1 } else { 0 };
+    assert_eq!(set_active(&mut dev, other).unwrap(), other as u8);
+    assert_eq!(set_active(&mut dev, orig as usize).unwrap(), orig);
+    eprintln!("active stage {orig} → {other} → {orig} OK");
+}
+
 #[test]
 fn set_payload_layout() {
     // active=4, presets 400/800/1600/4250/6400 (LE16), count=5.

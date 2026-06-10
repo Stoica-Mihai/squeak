@@ -16,6 +16,7 @@ pub enum Cmd {
     ReadAll,
     ReadButtons,
     SetDpi { index: usize, value: u16 },
+    SetActiveDpi(usize),
     SetRate { hz: u32 },
     SetSensor(SensorFields),
     SetAngle { degrees: u8, enable: bool },
@@ -144,6 +145,11 @@ fn handle(cmd: Cmd, dev: &mut dyn Hid) -> Vec<Update> {
         Cmd::SetDpi { index, value } => {
             let r = dpi::set_dpi(dev, value, index)
                 .map(|_| format!("DPI preset {} → {value} ✓ verified", index + 1));
+            write_then_settings(dev, r)
+        }
+        Cmd::SetActiveDpi(index) => {
+            let r = dpi::set_active(dev, index)
+                .map(|i| format!("active DPI → preset {} ✓ verified", i + 1));
             write_then_settings(dev, r)
         }
         Cmd::SetRate { hz } => {

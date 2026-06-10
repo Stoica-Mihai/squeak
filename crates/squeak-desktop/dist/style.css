@@ -87,6 +87,9 @@ input[type=range] { accent-color: var(--accent); width: 220px; }
 .btn { background: var(--cardhi); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; cursor: pointer; font: inherit; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
 .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 700; }
+.use { background: var(--surface); color: var(--sub); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; min-width: 88px; cursor: pointer; font: inherit; }
+.use:hover { border-color: var(--accent); color: var(--accent); }
+.use.on { background: rgba(166,227,161,.15); color: var(--green); border-color: transparent; font-weight: 700; cursor: default; }
 
 /* buttons table */
 table { width: 100%; border-collapse: collapse; }
