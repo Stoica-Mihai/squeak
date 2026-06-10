@@ -11,7 +11,25 @@ fn sensor_payload_encoding() {
 #[test]
 fn angle_payload_encoding() {
     assert_eq!(angle_payload(5, true), [0, 0, 0, 0, 0, 0, 0, 0, 2, 5]);
-    assert_eq!(angle_payload(0, false), [0; 10]);
+    // off = angle 0 (p[8] stays the 2 "edit angle" marker)
+    assert_eq!(angle_payload(0, false), [0, 0, 0, 0, 0, 0, 0, 0, 2, 0]);
+}
+
+/// Live: enable angle snapping, confirm, turn off, restore (opt-in).
+#[test]
+#[ignore = "writes to a connected device (auto-restores)"]
+fn live_angle_roundtrip() {
+    use crate::hid::{Device, find_config};
+    let info = find_config().expect("config device not found");
+    let mut dev = Device::open(&info.node).expect("open hidraw");
+    let orig = read_all(&mut dev).unwrap().sensor.angle;
+
+    assert_eq!(set_angle(&mut dev, 15, true).unwrap(), 15, "enable 15° failed");
+    assert_eq!(set_angle(&mut dev, 0, false).unwrap(), 0, "turn off failed");
+    if orig != 0 {
+        set_angle(&mut dev, orig.unsigned_abs().min(90) as u8, true).unwrap();
+    }
+    eprintln!("angle 15° → off → restore({orig}) OK");
 }
 
 /// Live: toggle each boolean sensor field and restore (opt-in). Does NOT

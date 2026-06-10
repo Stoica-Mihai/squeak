@@ -66,8 +66,9 @@ pub fn set_sensor(dev: &mut dyn Hid, f: SensorFields) -> Result<(), HidError> {
 /// Angle snapping (cmd 0x42, alt fields). Returns the read-back angle.
 fn angle_payload(angle: u8, enable: bool) -> [u8; 10] {
     let mut p = [0u8; 10];
-    p[8] = if enable { 2 } else { 0 };
-    p[9] = angle;
+    // p[8]=2 marks "edit the angle field"; off = angle 0 (p[8]=0/1 are ignored).
+    p[8] = 2;
+    p[9] = if enable { angle } else { 0 };
     p
 }
 
@@ -77,7 +78,12 @@ pub fn set_angle(dev: &mut dyn Hid, angle: u8, enable: bool) -> Result<i16, HidE
     if !ok {
         return Err(HidError::BadReply(format!("angle set rejected: {resp:02x?}")));
     }
-    Ok(read_all(dev)?.sensor.angle)
+    let got = read_all(dev)?.sensor.angle;
+    let want = if enable { angle as i16 } else { 0 };
+    if got != want {
+        return Err(HidError::BadReply(format!("angle unconfirmed: wanted {want}, read {got}")));
+    }
+    Ok(got)
 }
 
 #[cfg(test)]

@@ -410,17 +410,31 @@ function sensor(m) {
   m.appendChild(segRow("Sampling mode", [["Standard", false], ["Competitive", true]], s.fps20k,
     (v) => invoke("set_fps20k", { on: v })));
 
-  // angle: enable toggle + degree slider
+  // angle: enable toggle + (when on) a degree input
+  const enabled = s.angle !== 0;
+  const deg = Math.abs(s.angle) || 5;
   const arow = el("div", "row");
   arow.appendChild(el("span", "label", "Angle snapping"));
   const seg = el("div", "seg");
-  const off = el("button", s.angle === 0 ? "on" : "", "off");
-  const on = el("button", s.angle !== 0 ? "on" : "", "on");
+  const off = el("button", enabled ? "" : "on", "off");
+  const on = el("button", enabled ? "on" : "", "on");
   off.onclick = () => invoke("set_angle", { degrees: 0, enable: false });
-  on.onclick = () => invoke("set_angle", { degrees: Math.abs(s.angle) || 5, enable: true });
+  on.onclick = () => invoke("set_angle", { degrees: deg, enable: true });
   seg.append(off, on);
   arow.appendChild(seg);
-  if (s.angle !== 0) arow.appendChild(el("span", "v", `${s.angle}°`));
+  if (enabled) {
+    const input = el("input");
+    input.type = "number"; input.min = 1; input.max = 90; input.value = deg;
+    input.style.width = "72px";
+    const apply = el("button", "btn primary", "set °");
+    const commit = () => {
+      const d = Math.min(90, Math.max(1, Math.round(+input.value)));
+      invoke("set_angle", { degrees: d, enable: true });
+    };
+    apply.onclick = commit;
+    input.onkeydown = (e) => { if (e.key === "Enter") commit(); };
+    arow.append(input, el("span", "v", "°"), apply);
+  }
   m.appendChild(arow);
 
   m.appendChild(numRow("Debounce (ms)", state.settings.debounce, 0, 30,
