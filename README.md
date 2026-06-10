@@ -23,6 +23,20 @@ Terminal UI:
 
 <img src="docs/screenshots/overview.png" alt="squeak terminal UI" width="760">
 
+## Install
+
+Build from source + install the udev rule in one go (needs `cargo`; the desktop
+target also needs `webkit2gtk-4.1`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Stoica-Mihai/squeak/main/install.sh | bash
+# desktop app instead of (or with) the TUI:
+curl -fsSL https://raw.githubusercontent.com/Stoica-Mihai/squeak/main/install.sh | SQUEAK_TARGET=desktop bash
+#   SQUEAK_TARGET = tui (default) | desktop | both
+```
+
+Or do it manually — see each frontend's README below.
+
 ## Layout
 
 ```
