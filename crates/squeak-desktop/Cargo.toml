@@ -1,0 +1,16 @@
+[package]
+name = "squeak-desktop"
+description = "Desktop UI for configuring Keychron mice (squeak)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json.workspace = true
+squeak-core.workspace = true

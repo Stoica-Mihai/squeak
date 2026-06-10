@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/squeak-core", "crates/squeak-tui"]
+members = ["crates/squeak-core", "crates/squeak-tui", "crates/squeak-desktop"]
 exclude = ["rust-poc"]
 
 [workspace.package]
