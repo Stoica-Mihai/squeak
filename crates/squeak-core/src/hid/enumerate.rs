@@ -54,6 +54,15 @@ pub fn find_config() -> Option<DeviceInfo> {
         .find(|d| d.usage_page == USAGE_PAGE_CONFIG)
 }
 
+/// All config-collection candidates (e.g. dongle + wired both present). The
+/// caller probes each, since an idle transport's node won't answer.
+pub fn find_all_config() -> Vec<DeviceInfo> {
+    enumerate()
+        .into_iter()
+        .filter(|d| d.usage_page == USAGE_PAGE_CONFIG)
+        .collect()
+}
+
 /// `HID_ID=0003:00003434:0000D028` -> (vid, pid).
 fn parse_hid_id(uevent: &str) -> Option<(u16, u16)> {
     let line = uevent.lines().find(|l| l.starts_with("HID_ID="))?;

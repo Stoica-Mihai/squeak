@@ -5,7 +5,7 @@
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::{self, JoinHandle};
 
-use crate::hid::{Device, DeviceInfo, Hid, HidError, find_config};
+use crate::hid::{Device, DeviceInfo, Hid, HidError, find_all_config};
 use crate::proto::block::{self, Settings};
 use crate::proto::buttons::{self, ButtonInfo};
 use crate::proto::sensor::SensorFields;
@@ -283,19 +283,32 @@ fn dedupe_words(s: &str) -> String {
 }
 
 fn connect() -> Result<(DeviceInfo, Device), String> {
-    let info = find_config().ok_or_else(|| {
-        "Keychron config device not found (VID 3434, usage 0xFFC1). Plug in the dongle.".to_string()
-    })?;
-    match Device::open(&info.node) {
-        Ok(d) => Ok((info, d)),
-        Err(e) => Err(format!(
-            "cannot open {} ({e}).\nudev fix (then replug the dongle):\n  \
-             echo 'SUBSYSTEM==\"hidraw\", ATTRS{{idVendor}}==\"3434\", MODE=\"0660\", GROUP=\"input\"' \
-             | sudo tee /etc/udev/rules.d/99-keychron.rules\n  \
-             sudo udevadm control --reload-rules && sudo udevadm trigger --action=add",
-            info.node
-        )),
+    let candidates = find_all_config();
+    if candidates.is_empty() {
+        return Err("Keychron config device not found (VID 3434, usage 0xFFC1). \
+                    Plug in the dongle or the cable."
+            .to_string());
     }
+
+    // Probe each config node; an idle transport (e.g. the dongle while the
+    // mouse is on the cable) opens but never answers, so skip it.
+    let mut last = String::new();
+    for info in candidates {
+        match Device::open(&info.node) {
+            Ok(mut d) => match info::read_version(&mut d) {
+                Ok(_) => return Ok((info, d)),
+                Err(_) => last = format!("{} did not respond (idle transport?)", info.node),
+            },
+            Err(e) => last = format!("cannot open {} ({e})", info.node),
+        }
+    }
+    Err(format!(
+        "no responding Keychron config device — {last}.\n\
+         If both the dongle and cable are connected, unplug the one you're not using.\n\
+         If it's a permissions error, install the udev rule:\n  \
+         sudo cp packaging/99-keychron.rules /etc/udev/rules.d/ && \
+         sudo udevadm control --reload-rules && sudo udevadm trigger --action=add"
+    ))
 }
 
 #[cfg(test)]
