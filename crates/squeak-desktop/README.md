@@ -23,6 +23,22 @@ cargo run -p squeak-desktop
 
 Set up [permissions](../../README.md#permissions) once.
 
+### Install system-wide + launcher entry
+
+The Tauri binary embeds its frontend, so it's self-contained. From the repo:
+
+```bash
+./packaging/install-desktop.sh
+```
+
+Installs `squeak-desktop` to `/usr/local/bin` and a `.desktop` entry + icon
+under `~/.local/share`, so **squeak** shows up in your app launcher. (Uninstall
+hint is printed at the end.)
+
+Or build a distro package with the Tauri bundler (needs `cargo install
+tauri-cli`): `cargo tauri build` → `.deb` / `.rpm` / AppImage under
+`target/release/bundle/`.
+
 ## UI
 
 - **Sidebar** nav: Overview · DPI · Polling · Sensor · Buttons · Profiles.

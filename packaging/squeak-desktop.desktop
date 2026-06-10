@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=squeak
+GenericName=Mouse Configurator
+Comment=Configure Keychron mice — DPI, polling, sensor, buttons, profiles
+Exec=squeak-desktop
+Icon=squeak
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=mouse;keychron;dpi;polling;hid;
