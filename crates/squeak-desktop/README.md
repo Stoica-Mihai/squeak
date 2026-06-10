@@ -8,6 +8,8 @@ for the project overview, permissions, and protocol.
 
 Click-and-keyboard driven, needs a graphical session (no SSH/headless).
 
+<img src="../../docs/screenshots/desktop/overview.png" alt="Desktop Overview" width="820">
+
 ## Build & run
 
 Needs a Rust toolchain ≥ 1.85 and the WebKitGTK stack:
@@ -33,6 +35,16 @@ Set up [permissions](../../README.md#permissions) once.
 - **Buttons** — table of all 16 slots; click to remap (Mouse / Media / Disable
   / Default). A **Left Click Lock** guards the left button.
 - **Profiles** — pick the active on-device profile.
+
+<details>
+<summary>Screens</summary>
+
+<img src="../../docs/screenshots/desktop/dpi.png" alt="DPI" width="820">
+<img src="../../docs/screenshots/desktop/polling.png" alt="Polling" width="820">
+<img src="../../docs/screenshots/desktop/sensor.png" alt="Sensor" width="820">
+<img src="../../docs/screenshots/desktop/buttons.png" alt="Buttons" width="820">
+<img src="../../docs/screenshots/desktop/profiles.png" alt="Profiles" width="820">
+</details>
 
 ## Shortcuts
 
