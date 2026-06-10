@@ -1,70 +1,209 @@
-//! squeak desktop — Tauri shell over `squeak-core`. The frontend (dist/) calls
-//! the `overview` command, which connects to the dongle and returns a snapshot.
+//! squeak desktop — Tauri shell over `squeak-core`.
+//!
+//! The real `squeak_core::worker` runs on its own thread (same verified
+//! connect / write / read-back / reconnect logic as the TUI). Frontend commands
+//! push `Cmd`s; the worker's `Update`s are bridged to Tauri events the web UI
+//! listens for. So every write goes through the already-tested dispatch.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use serde::Serialize;
-use squeak_core::hid::{Device, find_config};
-use squeak_core::proto::{block, info, polling};
+use std::sync::mpsc::Sender;
 
-#[derive(Serialize)]
-struct Overview {
-    name: String,
-    transport: String,
-    firmware: String,
-    battery: u8,
-    charging: bool,
-    dpi: Vec<u16>,
-    dpi_active: usize,
-    polling_hz: u32,
-    lod: u8,
-    scroll_inverted: bool,
-    motion: bool,
-    angle: i16,
-    debounce: u8,
-    sleep_min: u8,
+use serde_json::json;
+use tauri::{Emitter, Manager, State};
+
+use squeak_core::proto::buttons::{
+    MEDIA_ACTIONS, MOUSE_ACTIONS, friendly_name, is_present, type_name,
+};
+use squeak_core::proto::polling::RATES_HZ;
+use squeak_core::proto::sensor::SensorFields;
+use squeak_core::worker::{Cmd, Update, Worker};
+
+struct AppState {
+    tx: Sender<Cmd>,
 }
 
-/// Connect, read the 0x06 block + firmware, and return an Overview snapshot.
-#[tauri::command]
-fn overview() -> Result<Overview, String> {
-    let info = find_config().ok_or("Keychron config device not found — plug in the dongle.")?;
-    let mut dev = Device::open(&info.node).map_err(|e| e.to_string())?;
-    let s = block::read_all(&mut dev).map_err(|e| e.to_string())?;
-    let firmware = info::read_version(&mut dev).unwrap_or_else(|_| "?".into());
+impl AppState {
+    fn send(&self, cmd: Cmd) -> Result<(), String> {
+        self.tx.send(cmd).map_err(|_| "device worker is gone".to_string())
+    }
+}
 
-    let transport = if info.pid >= 0xD000 { "2.4 GHz" } else { "wired" };
-    Ok(Overview {
-        name: dedupe_words(&info.name),
-        transport: transport.into(),
-        firmware,
-        battery: s.battery.percent.min(100),
-        charging: s.battery.charging,
-        dpi: s.dpi.presets.to_vec(),
-        dpi_active: s.dpi.active_levels[0] as usize,
-        polling_hz: polling::hz_from_code(s.polling.levels[0]).unwrap_or(0),
-        lod: s.sensor.lod,
-        scroll_inverted: s.sensor.scroll_dir == 1,
-        motion: s.sensor.motion_sync == 1,
-        angle: s.sensor.angle,
-        debounce: s.debounce.value,
-        sleep_min: s.sleep_min,
+// ---- commands (frontend → worker) -----------------------------------------
+
+#[tauri::command]
+fn read_all(s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::ReadAll)
+}
+#[tauri::command]
+fn read_buttons(s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::ReadButtons)
+}
+#[tauri::command]
+fn set_dpi(index: usize, value: u16, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetDpi { index, value })
+}
+#[tauri::command]
+fn set_rate(hz: u32, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetRate { hz })
+}
+#[tauri::command]
+fn set_lod(value: u8, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetSensor(SensorFields { lod: Some(value), ..Default::default() }))
+}
+#[tauri::command]
+fn set_scroll(inverted: bool, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetSensor(SensorFields { scroll_dir: Some(inverted as u8), ..Default::default() }))
+}
+#[tauri::command]
+fn set_motion(on: bool, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetSensor(SensorFields { motion: Some(on as u8), ..Default::default() }))
+}
+#[tauri::command]
+fn set_fps20k(on: bool, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetSensor(SensorFields { fps20k: Some(on as u8), ..Default::default() }))
+}
+#[tauri::command]
+fn set_angle(degrees: u8, enable: bool, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetAngle { degrees, enable })
+}
+#[tauri::command]
+fn set_debounce(ms: u8, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetDebounce(ms))
+}
+#[tauri::command]
+fn set_sleep(minutes: u8, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetSleep(minutes))
+}
+#[tauri::command]
+fn set_profile(index: u8, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetProfile(index))
+}
+#[tauri::command]
+fn set_button_mouse(id: u8, action: String, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetButtonMouse { id, action })
+}
+#[tauri::command]
+fn set_button_media(id: u8, action: String, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetButtonMedia { id, action })
+}
+#[tauri::command]
+fn set_button_disable(id: u8, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetButtonDisable(id))
+}
+#[tauri::command]
+fn set_button_default(id: u8, s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::SetButtonDefault(id))
+}
+#[tauri::command]
+fn check_update(s: State<AppState>) -> Result<(), String> {
+    s.send(Cmd::CheckUpdate)
+}
+
+/// Static option lists for the button remap picker.
+#[tauri::command]
+fn palettes() -> serde_json::Value {
+    json!({
+        "mouse": MOUSE_ACTIONS.iter().map(|(n, _)| *n).collect::<Vec<_>>(),
+        "media": MEDIA_ACTIONS.iter().map(|(n, _)| *n).collect::<Vec<_>>(),
+        "rates": RATES_HZ,
     })
 }
 
-/// Collapse consecutive duplicate words ("Keychron Keychron …").
-fn dedupe_words(s: &str) -> String {
-    let mut out: Vec<&str> = Vec::new();
-    for w in s.split_whitespace() {
-        if out.last() != Some(&w) {
-            out.push(w);
+// ---- bridge (worker Update → Tauri event) ----------------------------------
+
+fn emit_update(app: &tauri::AppHandle, u: Update) {
+    match u {
+        Update::Connected { name, firmware, transport, .. } => {
+            let _ = app.emit("connected", json!({ "name": name, "firmware": firmware, "transport": transport }));
+        }
+        Update::Settings(s) => {
+            let dto = json!({
+                "profile": { "current": s.profile.current, "count": s.profile.count },
+                "dpi": {
+                    "presets": s.dpi.presets,
+                    "active": s.dpi.active_levels[0],
+                    "count": s.dpi.count,
+                    "max": s.dpi.max,
+                },
+                "pollingHz": squeak_core::proto::polling::hz_from_code(s.polling.levels[0]).unwrap_or(0),
+                "sensor": {
+                    "lod": s.sensor.lod,
+                    "scrollInverted": s.sensor.scroll_dir == 1,
+                    "motion": s.sensor.motion_sync == 1,
+                    "fps20k": s.sensor.fps20k == 1,
+                    "angle": s.sensor.angle,
+                },
+                "debounce": s.debounce.value,
+                "sleepMin": s.sleep_min,
+                "battery": { "percent": s.battery.percent.min(100), "charging": s.battery.charging },
+            });
+            let _ = app.emit("settings", dto);
+        }
+        Update::Buttons(list) => {
+            let dto: Vec<_> = list
+                .iter()
+                .map(|b| {
+                    json!({
+                        "id": b.id,
+                        "friendly": friendly_name(b.id).unwrap_or(""),
+                        "typeId": b.type_id,
+                        "typeName": type_name(b.type_id),
+                        "label": b.label,
+                        "present": is_present(b),
+                    })
+                })
+                .collect();
+            let _ = app.emit("buttons", dto);
+        }
+        Update::Written { ok, msg } => {
+            let _ = app.emit("written", json!({ "ok": ok, "msg": msg }));
+        }
+        Update::Firmware { latest } => {
+            let _ = app.emit("firmware", json!({ "latest": latest }));
+        }
+        Update::Error(e) => {
+            let _ = app.emit("error", json!({ "message": e }));
         }
     }
-    out.join(" ")
 }
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![overview])
+        .setup(|app| {
+            let worker = Worker::spawn();
+            app.manage(AppState { tx: worker.cmd_tx.clone() });
+
+            let handle = app.handle().clone();
+            // Drain worker updates → Tauri events. Worker is moved in and lives
+            // for the process lifetime (its own cmd_tx keeps the channel open).
+            std::thread::spawn(move || {
+                while let Ok(update) = worker.update_rx.recv() {
+                    emit_update(&handle, update);
+                }
+            });
+            // Kick the initial snapshot once the frontend is listening.
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            read_all,
+            read_buttons,
+            set_dpi,
+            set_rate,
+            set_lod,
+            set_scroll,
+            set_motion,
+            set_fps20k,
+            set_angle,
+            set_debounce,
+            set_sleep,
+            set_profile,
+            set_button_mouse,
+            set_button_media,
+            set_button_disable,
+            set_button_default,
+            check_update,
+            palettes,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running squeak desktop");
 }

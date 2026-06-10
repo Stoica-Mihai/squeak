@@ -7,47 +7,22 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="status">
+  <header class="status">
     <span class="brand"><span class="diamond">◆</span> squeak</span>
     <span class="sep">│</span>
     <span id="device" class="dev">connecting…</span>
-    <span class="meta" id="meta"></span>
+    <span id="meta" class="meta"></span>
     <span class="spacer"></span>
     <span class="gauge"><span id="batt-fill" class="batt-fill"></span></span>
     <span id="batt" class="batt"></span>
-    <button id="refresh" title="refresh">⟳</button>
+  </header>
+
+  <div class="body">
+    <nav class="rail" id="rail"></nav>
+    <main id="screen"></main>
   </div>
 
-  <main>
-    <h1 class="screen-title">Overview</h1>
-    <div class="grid">
-      <section class="card">
-        <div class="t"><span class="ic">⊙</span> DPI</div>
-        <div class="big"><span id="dpi-active">—</span> <span class="unit">active</span></div>
-        <div id="dpi-pills" class="pills"></div>
-      </section>
-
-      <section class="card">
-        <div class="t"><span class="ic">⟳</span> Polling rate</div>
-        <div class="big"><span id="polling">—</span> <span class="unit">Hz</span></div>
-        <div class="sub">125 · 500 · 1000 · 2000 · 4000 · 8000</div>
-      </section>
-
-      <section class="card">
-        <div class="t"><span class="ic">◎</span> Sensor</div>
-        <div class="kv"><span class="k">LOD</span><span id="lod" class="v">—</span></div>
-        <div class="kv"><span class="k">scroll</span><span id="scroll" class="v">—</span></div>
-        <div class="kv"><span class="k">motion</span><span id="motion" class="v">—</span><span class="k angle-k">angle</span><span id="angle" class="v">—</span></div>
-      </section>
-
-      <section class="card">
-        <div class="t"><span class="ic">⌁</span> Timing &amp; power</div>
-        <div class="kv"><span class="k">debounce</span><span id="debounce" class="v">—</span></div>
-        <div class="kv"><span class="k">sleep</span><span id="sleep" class="v">—</span></div>
-      </section>
-    </div>
-    <p id="err" class="err"></p>
-  </main>
+  <div id="toast" class="toast"></div>
 
   <script src="main.js"></script>
 </body>
