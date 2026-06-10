@@ -103,10 +103,51 @@ function applyTheme() {
   }
 }
 
-function cycleTheme() {
-  state.theme = (state.theme + 1) % THEMES.length;
-  applyTheme();
-  toast(`theme: ${THEMES[state.theme].name}`, "ok");
+// Theme picker: live-preview on hover/arrows, swatches, ↵ confirm / esc revert.
+function openThemePicker() {
+  if (document.querySelector(".scrim")) return;
+  const prev = state.theme;
+  let cur = state.theme;
+  const scrim = el("div", "scrim");
+  const modal = el("div", "modal");
+  modal.appendChild(el("h3", null, "Theme"));
+
+  const rows = [];
+  const mark = () => rows.forEach((r, i) => r.classList.toggle("sel", i === cur));
+  const preview = (i) => { cur = i; state.theme = i; applyTheme(); mark(); };
+  THEMES.forEach((t, i) => {
+    const row = el("div", "theme-opt");
+    const sw = el("span", "swatches");
+    for (const k of ["bg", "surface", "accent", "green", "peach", "red", "mauve"]) {
+      const d = el("span", "sw");
+      d.style.background = t[k];
+      sw.appendChild(d);
+    }
+    row.append(el("span", "tname", t.name), sw);
+    row.onmouseenter = () => preview(i);
+    row.onclick = () => finish(true);
+    rows.push(row);
+    modal.appendChild(row);
+  });
+  modal.appendChild(el("p", "sub", "↑↓ preview · ↵ apply · esc cancel"));
+  scrim.appendChild(modal);
+  document.body.appendChild(scrim);
+  mark();
+
+  function finish(ok) {
+    if (!ok) { state.theme = prev; applyTheme(); }
+    document.removeEventListener("keydown", onPickKey, true);
+    scrim.remove();
+  }
+  function onPickKey(e) {
+    e.stopPropagation();
+    if (e.key === "Escape") finish(false);
+    else if (e.key === "Enter") finish(true);
+    else if (e.key === "ArrowDown" || e.key === "j") { preview((cur + 1) % THEMES.length); e.preventDefault(); }
+    else if (e.key === "ArrowUp" || e.key === "k") { preview((cur - 1 + THEMES.length) % THEMES.length); e.preventDefault(); }
+  }
+  document.addEventListener("keydown", onPickKey, true);
+  scrim.onclick = (e) => { if (e.target === scrim) finish(false); };
 }
 
 function quit() {
@@ -146,7 +187,7 @@ function onKey(e) {
     case "ArrowDown": case "j": moveSection(1); break;
     case "ArrowUp": case "k": moveSection(-1); break;
     case "r": invoke("read_all"); invoke("read_buttons"); break;
-    case "t": cycleTheme(); break;
+    case "t": openThemePicker(); break;
     case "u": invoke("check_update"); break;
     case "?": openHelp(); break;
     case "q": quit(); break;

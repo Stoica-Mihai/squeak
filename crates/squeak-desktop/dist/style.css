@@ -129,6 +129,14 @@ tr.empty td { color: var(--dim); }
 .keys .k { color: var(--bg); background: var(--accent); border-radius: 5px; padding: 1px 7px; font-weight: 700; font-size: 12px; }
 .keys .kg { color: var(--sub); }
 
+/* theme picker */
+.theme-opt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; border-radius: 9px; cursor: pointer; }
+.theme-opt:hover, .theme-opt.sel { background: var(--cardhi); }
+.theme-opt.sel { box-shadow: inset 3px 0 0 var(--accent); }
+.theme-opt .tname { font-weight: 600; }
+.swatches { display: flex; gap: 5px; }
+.sw { width: 15px; height: 15px; border-radius: 4px; border: 1px solid rgba(255,255,255,.10); }
+
 /* help overlay rows */
 .help-row { display: flex; gap: 14px; padding: 5px 0; }
 .help-row .hk { color: var(--accent); font-weight: 700; min-width: 70px; font-family: "JetBrains Mono", monospace; }
