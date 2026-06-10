@@ -95,6 +95,12 @@ function card(title, ic) {
   return c;
 }
 
+function goto(screen) {
+  state.screen = screen;
+  buildRail();
+  render();
+}
+
 function overview(m) {
   const s = state.settings;
   const grid = el("div", "grid");
@@ -122,6 +128,12 @@ function overview(m) {
 
   const t = card("Timing & power", "⌁");
   t.append(kvLine("debounce", `${s.debounce} ms`), kvLine("sleep", `${s.sleepMin} min`));
+
+  // Overview cards are shortcuts to their editable screen.
+  for (const [c, screen] of [[d, "dpi"], [p, "polling"], [se, "sensor"], [t, "sensor"]]) {
+    c.classList.add("link");
+    c.onclick = () => goto(screen);
+  }
 
   grid.append(d, p, se, t);
   m.appendChild(grid);
