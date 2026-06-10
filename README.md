@@ -15,6 +15,12 @@ First-class target: **Keychron M6 8K / Ultra-Link 8K dongle** (`8k_nordic`,
 VID `0x3434`), verified live over cable + 2.4 GHz. Plug/unplug is detected
 automatically (netlink uevents — no device polling).
 
+Desktop app:
+
+<img src="docs/screenshots/desktop/overview.png" alt="squeak desktop app" width="760">
+
+Terminal UI:
+
 <img src="docs/screenshots/overview.png" alt="squeak terminal UI" width="760">
 
 ## Layout
