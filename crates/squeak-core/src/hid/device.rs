@@ -61,9 +61,11 @@ impl Device {
         Ok(())
     }
 
-    /// Read input reports until one with id == `want_id`, discarding noise
-    /// (live mouse-input reports) in between. Bounded by `TIMEOUT`.
-    fn read_until(&mut self, want_id: u8, payload_len: usize) -> Result<Vec<u8>, HidError> {
+    /// Read input reports until one with id == `want_id` (and, if `want_cmd` is
+    /// set, echoed command byte at `[1]` == it), discarding noise — live
+    /// mouse-input reports, and foreign replies if another app (e.g. the web
+    /// Launcher) is also talking to the device. Bounded by `TIMEOUT`.
+    fn read_until(&mut self, want_id: u8, want_cmd: Option<u8>, payload_len: usize) -> Result<Vec<u8>, HidError> {
         let mut rbuf = vec![0u8; 1 + payload_len];
         let start = Instant::now();
         while start.elapsed() < TIMEOUT {
@@ -74,7 +76,7 @@ impl Device {
                 continue;
             }
             let n = self.file.read(&mut rbuf)?;
-            if n > 0 && rbuf[0] == want_id {
+            if n > 0 && rbuf[0] == want_id && want_cmd.is_none_or(|c| n > 1 && rbuf[1] == c) {
                 return Ok(rbuf[..n].to_vec());
             }
         }
@@ -89,7 +91,7 @@ impl Hid for Device {
         p.push(cmd);
         p.extend_from_slice(payload);
         self.write_frame(LONG_OUT, LONG_LEN, &p)?;
-        self.read_until(LONG_IN, LONG_LEN)
+        self.read_until(LONG_IN, Some(cmd), LONG_LEN)
     }
 
     fn set(&mut self, cmd: u8, payload: &[u8]) -> Result<(bool, Vec<u8>), HidError> {
@@ -97,7 +99,7 @@ impl Hid for Device {
         p.push(cmd);
         p.extend_from_slice(payload);
         self.write_frame(SHORT_OUT, SHORT_LEN, &p)?;
-        let resp = self.read_until(SHORT_IN, SHORT_LEN)?;
+        let resp = self.read_until(SHORT_IN, None, SHORT_LEN)?;
         let ok = resp.len() >= 4 && resp[1] == SHORT_REPLY_MARK && resp[2] == STATUS_OK;
         Ok((ok, resp))
     }
@@ -107,7 +109,7 @@ impl Hid for Device {
         p.push(cmd);
         p.extend_from_slice(payload);
         self.write_frame(LONG_OUT, LONG_LEN, &p)?;
-        let resp = self.read_until(SHORT_IN, SHORT_LEN)?;
+        let resp = self.read_until(SHORT_IN, None, SHORT_LEN)?;
         let ok = resp.len() >= 4
             && resp[1] == SHORT_REPLY_MARK
             && resp[2] == STATUS_OK
@@ -117,6 +119,6 @@ impl Hid for Device {
 
     fn long_raw(&mut self, payload: &[u8]) -> Result<Vec<u8>, HidError> {
         self.write_frame(LONG_OUT, LONG_LEN, payload)?;
-        self.read_until(SHORT_IN, SHORT_LEN)
+        self.read_until(SHORT_IN, None, SHORT_LEN)
     }
 }
