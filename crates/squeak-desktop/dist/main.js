@@ -67,14 +67,14 @@ async function wireEvents() {
       state.buttons = e.payload;
       if (state.screen === "buttons") render();
     }),
-    listen("written", (e) => toast(e.payload.msg, e.payload.ok ? "ok" : "err")),
+    listen("written", (e) => toast(e.payload.ok ? e.payload.msg : friendlyError(e.payload.msg), e.payload.ok ? "ok" : "err")),
     listen("firmware", (e) => {
       const v = e.payload.latest;
       toast(v ? `firmware: latest is ${v}` : "firmware check failed (offline?)", v ? "ok" : "err");
     }),
     listen("error", (e) => {
       $("device").textContent = "disconnected";
-      toast(String(e.payload.message).split("\n")[0], "err"); // first line only
+      toast(friendlyError(e.payload.message), "err");
     }),
   ]);
 }
@@ -594,6 +594,20 @@ function openPicker(b) {
 }
 
 // ---- toast -----------------------------------------------------------------
+
+// Map a raw backend error to a plain, actionable reason.
+function friendlyError(raw) {
+  const m = String(raw).toLowerCase();
+  if (m.includes("no such device") || m.includes("os error 19")) return "Mouse disconnected.";
+  if (m.includes("permission") || m.includes("eacces") || m.includes("os error 13"))
+    return "Permission denied — install the udev rule (see README).";
+  if (m.includes("not found") || m.includes("no responding"))
+    return "No mouse found — connect the cable or dongle (and unplug the unused one).";
+  if (m.includes("timeout")) return "Mouse not responding — reconnect it, then refresh.";
+  if (m.includes("unconfirmed")) return "The device didn't confirm the change — try again.";
+  if (m.includes("rejected")) return "The device rejected that value.";
+  return String(raw).split("\n")[0]; // unknown: first line
+}
 
 function toast(msg, kind) {
   const t = el("div", "t " + (kind || ""), msg);
