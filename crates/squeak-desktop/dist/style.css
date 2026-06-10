@@ -156,8 +156,7 @@ tr.empty td { color: var(--dim); }
 .ed-title { font-size: 17px; margin-bottom: 4px; }
 .dpi-stepper { display: flex; align-items: center; justify-content: center; gap: 22px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 22px; width: fit-content; margin: 34px auto 26px; }
 .dpi-num { font-size: 36px; font-weight: 700; width: 150px; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 1px; background: transparent; border: none; color: var(--text); outline: none; font-family: inherit; border-radius: 8px; }
-.dpi-num:focus { background: var(--surface); }
-.dpi-num:hover { background: rgba(255,255,255,.04); }
+.dpi-num:hover { background: rgba(255,255,255,.05); }
 .step { background: transparent; border: none; color: var(--sub); font-size: 26px; line-height: 1; cursor: pointer; width: 34px; }
 .step:hover { color: var(--accent); }
 .dpi-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 38px; background: transparent; outline: none; cursor: pointer; }
