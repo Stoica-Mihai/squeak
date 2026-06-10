@@ -85,7 +85,9 @@ main { flex: 1; padding: 22px 26px; overflow-y: auto; }
 .seg button { background: transparent; color: var(--sub); border: none; padding: 7px 14px; cursor: pointer; font: inherit; font-variant-numeric: tabular-nums; }
 .seg button:hover { color: var(--text); }
 .seg button.on { background: var(--accent); color: var(--bg); font-weight: 700; }
-input[type=number] { background: var(--surface); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 7px 10px; width: 90px; font: inherit; }
+input[type=number] { background: var(--surface); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 7px 10px; width: 90px; font: inherit; appearance: textfield; -moz-appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
 input[type=range] { accent-color: var(--accent); width: 220px; }
 .btn { background: var(--cardhi); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; cursor: pointer; font: inherit; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
