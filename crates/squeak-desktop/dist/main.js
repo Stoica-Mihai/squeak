@@ -28,25 +28,29 @@ const el = (tag, cls, txt) => {
 
 // ---- events ----------------------------------------------------------------
 
-function wireEvents() {
-  listen("connected", (e) => {
-    $("device").textContent = e.payload.name;
-    $("meta").textContent = `· ${e.payload.transport} · fw ${e.payload.firmware}`;
-  });
-  listen("settings", (e) => {
-    state.settings = e.payload;
-    paintStatus();
-    render();
-  });
-  listen("buttons", (e) => {
-    state.buttons = e.payload;
-    if (state.screen === "buttons") render();
-  });
-  listen("written", (e) => toast(e.payload.msg, e.payload.ok ? "ok" : "err"));
-  listen("error", (e) => {
-    $("device").textContent = "disconnected";
-    toast(e.payload.message, "err");
-  });
+async function wireEvents() {
+  // Await every subscription before any command runs, else the worker's first
+  // connected/settings events fire before listeners attach and are lost.
+  await Promise.all([
+    listen("connected", (e) => {
+      $("device").textContent = e.payload.name;
+      $("meta").textContent = `· ${e.payload.transport} · fw ${e.payload.firmware}`;
+    }),
+    listen("settings", (e) => {
+      state.settings = e.payload;
+      paintStatus();
+      render();
+    }),
+    listen("buttons", (e) => {
+      state.buttons = e.payload;
+      if (state.screen === "buttons") render();
+    }),
+    listen("written", (e) => toast(e.payload.msg, e.payload.ok ? "ok" : "err")),
+    listen("error", (e) => {
+      $("device").textContent = "disconnected";
+      toast(e.payload.message, "err");
+    }),
+  ]);
 }
 
 function paintStatus() {
@@ -315,7 +319,7 @@ function toast(msg, kind) {
 // ---- boot ------------------------------------------------------------------
 
 async function boot() {
-  wireEvents();
+  await wireEvents();
   buildRail();
   render();
   state.palettes = await invoke("palettes");
