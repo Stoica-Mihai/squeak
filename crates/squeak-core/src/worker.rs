@@ -11,7 +11,7 @@ use crate::proto::buttons::{self, ButtonInfo};
 use crate::proto::sensor::SensorFields;
 use crate::proto::{self, Variant, dpi, info, macros, polling, profile, sensor, system};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Cmd {
     ReadAll,
     ReadButtons,
@@ -108,9 +108,21 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
                 false
             }
             other => {
+                let mut updates = handle(other.clone(), dev.as_mut().unwrap());
+                // Stale fd / transport hiccup (e.g. node re-enumerated): drop,
+                // reconnect, and retry once before surfacing any error — so the
+                // user doesn't have to refresh twice.
+                if updates.iter().any(|u| matches!(u, Update::Error(_))) {
+                    dev = None;
+                    if let Ok((d, vid, pid)) = ensure_connected(&update_tx) {
+                        dev = Some(d);
+                        ids = Some((vid, pid));
+                        updates = handle(other, dev.as_mut().unwrap());
+                    }
+                }
                 let mut closed = false;
                 let mut drop_dev = false;
-                for u in handle(other, dev.as_mut().unwrap()) {
+                for u in updates {
                     drop_dev |= matches!(u, Update::Error(_));
                     if send(&update_tx, u) {
                         closed = true;
