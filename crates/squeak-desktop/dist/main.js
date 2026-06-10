@@ -353,8 +353,16 @@ function dpi(m) {
   slider.onchange = () => setDpiVal(sel, +slider.value);
 
   const ticks = el("div", "dpi-ticks");
-  // evenly spaced so labels line up with the linear slider
-  [50, 6500, 13000, 19500, max].forEach((t) => ticks.append(el("span", null, String(t))));
+  // Position each tick at the thumb's true travel (track inset by half the
+  // 10px thumb), centered — so labels line up with the handle.
+  const tickVals = [50, 6500, 13000, 19500, max];
+  tickVals.forEach((t, i) => {
+    const sp = el("span", null, String(t));
+    const frac = (t - 50) / (max - 50);
+    sp.style.left = `calc(5px + ${frac} * (100% - 10px))`;
+    sp.style.transform = i === 0 ? "translateX(0)" : i === tickVals.length - 1 ? "translateX(-100%)" : "translateX(-50%)";
+    ticks.appendChild(sp);
+  });
 
   ed.append(stepper, slider, ticks);
   layout.append(list, ed);
