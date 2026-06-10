@@ -39,7 +39,7 @@ if [ "$TARGET" = desktop ] || [ "$TARGET" = both ]; then
   cargo build --release -p squeak-desktop
   say "installing squeak-desktop → /usr/local/bin (sudo)"
   sudo install -Dm755 target/release/squeak-desktop /usr/local/bin/squeak-desktop
-  install -Dm644 crates/squeak-desktop/icons/icon.png "$data/icons/hicolor/512x512/apps/squeak.png"
+  install -Dm644 crates/squeak-desktop/icons/icon.png "$data/icons/hicolor/512x512/apps/squeak-desktop.png"
   install -Dm644 packaging/squeak-desktop.desktop "$data/applications/squeak-desktop.desktop"
   update-desktop-database "$data/applications" 2>/dev/null || true
   gtk-update-icon-cache -f -t "$data/icons/hicolor" 2>/dev/null || true

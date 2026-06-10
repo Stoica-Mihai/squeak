@@ -17,7 +17,8 @@ cargo uninstall squeak-tui >/dev/null 2>&1 || rm -f "$cargo_bin/squeak"
 say "removing desktop app + launcher entry"
 [ -e /usr/local/bin/squeak-desktop ] && sudo rm -f /usr/local/bin/squeak-desktop
 rm -f "$data/applications/squeak-desktop.desktop"
-rm -f "$data/icons/hicolor/512x512/apps/squeak.png"
+rm -f "$data/icons/hicolor/512x512/apps/squeak-desktop.png"
+rm -f "$data/icons/hicolor/512x512/apps/squeak.png" # legacy name
 update-desktop-database "$data/applications" 2>/dev/null || true
 gtk-update-icon-cache -f -t "$data/icons/hicolor" 2>/dev/null || true
 
