@@ -17,7 +17,8 @@ use squeak_core::proto::sensor::SensorFields;
 use crate::theme::{self, Theme};
 use squeak_core::worker::{Cmd, Update};
 
-const LOD_MAX: u8 = 2;
+const LOD_MIN: u8 = 1;
+const LOD_MAX: u8 = 3;
 const ANGLE_MAX: u8 = 90;
 const ANGLE_STEP: u8 = 5;
 const DEBOUNCE_MAX: u8 = 30;
@@ -732,7 +733,7 @@ impl App {
     fn adjust_sensor(&mut self, dir: i32) {
         let e = &mut self.sensor_edit;
         match SensorRow::ALL[self.sensor_cursor] {
-            SensorRow::Lod => e.lod = step_clamp(e.lod, dir, 0, LOD_MAX, 1),
+            SensorRow::Lod => e.lod = step_clamp(e.lod, dir, LOD_MIN, LOD_MAX, 1),
             SensorRow::ScrollDir => e.scroll_dir ^= 1,
             SensorRow::Motion => e.motion ^= 1,
             SensorRow::Ripple => e.wave ^= 1,
