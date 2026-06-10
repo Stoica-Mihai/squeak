@@ -56,8 +56,13 @@ async function wireEvents() {
 function paintStatus() {
   const b = state.settings?.battery;
   if (!b) return;
-  $("batt-fill").style.width = `${b.percent}%`;
-  $("batt").textContent = `${b.percent}%${b.charging ? " ⚡" : ""}`;
+  const fill = $("batt-fill");
+  fill.style.width = `${b.percent}%`;
+  fill.style.background = b.percent <= 15 ? "var(--red)" : b.percent <= 35 ? "var(--peach)" : "var(--green)";
+  const bolt = $("batt-bolt");
+  bolt.classList.toggle("on", b.charging);
+  bolt.textContent = b.charging ? "⚡" : "";
+  $("batt").textContent = `${b.percent}%`;
 }
 
 // ---- shell -----------------------------------------------------------------

@@ -11,6 +11,7 @@
   --mauve: #cba6f7;
   --green: #a6e3a1;
   --red: #f38ba8;
+  --peach: #fab387;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
@@ -38,9 +39,20 @@ body {
 .dev { font-weight: 600; }
 .meta { color: var(--sub); font-size: 13px; }
 .spacer { flex: 1; }
-.gauge { width: 90px; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
-.batt-fill { display: block; height: 100%; width: 0; background: var(--green); border-radius: 99px; transition: width .3s; }
-.batt { color: var(--green); font-weight: 700; font-size: 13px; min-width: 38px; }
+/* drawn battery glyph: body + terminal nub, proportional fill */
+.battery {
+  position: relative; display: inline-flex; align-items: center;
+  width: 30px; height: 15px; padding: 2px;
+  border: 2px solid var(--sub); border-radius: 4px;
+}
+.battery::after {
+  content: ""; position: absolute; right: -5px; top: 3.5px;
+  width: 3px; height: 5px; background: var(--sub); border-radius: 0 2px 2px 0;
+}
+.batt-fill { height: 100%; width: 100%; background: var(--green); border-radius: 1px; transition: width .3s, background .3s; }
+.batt-bolt { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: #11111b; font-size: 11px; font-weight: 900; }
+.batt-bolt.on { display: flex; }
+.batt { color: var(--text); font-weight: 700; font-size: 13px; min-width: 38px; }
 
 .body { flex: 1; display: flex; min-height: 0; }
 
