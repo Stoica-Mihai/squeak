@@ -11,8 +11,26 @@ const SCREENS = [
   ["profiles", "❏", "Profiles"],
 ];
 
+const KEYS = [
+  ["↑↓", "section"],
+  ["r", "refresh"],
+  ["t", "theme"],
+  ["u", "check fw"],
+  ["?", "help"],
+  ["q", "quit"],
+];
+
+// Palettes ported from the TUI (theme.rs). Cycled with `t`.
+const THEMES = [
+  { name: "Mocha", bg: "#1e1e2e", surface: "#11111b", card: "#24273a", cardhi: "#2a2d44", line: "#313244", text: "#cdd6f4", sub: "#a6adc8", dim: "#6c7086", accent: "#89b4fa", mauve: "#cba6f7", green: "#a6e3a1", red: "#f38ba8", peach: "#fab387" },
+  { name: "Gruvbox", bg: "#282828", surface: "#1d2021", card: "#32302f", cardhi: "#3c3836", line: "#504945", text: "#ebdbb2", sub: "#bdae93", dim: "#928374", accent: "#fabd2f", mauve: "#d3869b", green: "#b8bb26", red: "#fb4934", peach: "#fe8019" },
+  { name: "Nord", bg: "#2e3440", surface: "#272c36", card: "#3b4252", cardhi: "#434c5e", line: "#434c5e", text: "#d8dee9", sub: "#aeb8c9", dim: "#4c566a", accent: "#88c0d0", mauve: "#b48ead", green: "#a3be8c", red: "#bf616a", peach: "#d08770" },
+  { name: "Dracula", bg: "#282a36", surface: "#21222c", card: "#343746", cardhi: "#44475a", line: "#44475a", text: "#f8f8f2", sub: "#c8c9d6", dim: "#6272a4", accent: "#bd93f9", mauve: "#ff79c6", green: "#50fa7b", red: "#ff5555", peach: "#ffb86c" },
+];
+
 const state = {
   screen: "overview",
+  theme: 0,
   settings: null,
   buttons: [],
   palettes: { mouse: [], media: [], rates: [125, 500, 1000, 2000, 4000, 8000] },
@@ -46,11 +64,95 @@ async function wireEvents() {
       if (state.screen === "buttons") render();
     }),
     listen("written", (e) => toast(e.payload.msg, e.payload.ok ? "ok" : "err")),
+    listen("firmware", (e) => {
+      const v = e.payload.latest;
+      toast(v ? `firmware: latest is ${v}` : "firmware check failed (offline?)", v ? "ok" : "err");
+    }),
     listen("error", (e) => {
       $("device").textContent = "disconnected";
       toast(e.payload.message, "err");
     }),
   ]);
+}
+
+// ---- keyboard + footer keybar ----------------------------------------------
+
+function buildKeys() {
+  const f = $("keys");
+  f.innerHTML = "";
+  for (const [k, l] of KEYS) {
+    const g = el("span", "grp");
+    g.append(el("span", "k", k), el("span", "kg", l));
+    f.appendChild(g);
+  }
+}
+
+function moveSection(d) {
+  const i = SCREENS.findIndex((x) => x[0] === state.screen);
+  const n = (i + d + SCREENS.length) % SCREENS.length;
+  state.screen = SCREENS[n][0];
+  buildRail();
+  render();
+}
+
+function applyTheme() {
+  const t = THEMES[state.theme];
+  const root = document.documentElement.style;
+  for (const [k, v] of Object.entries(t)) {
+    if (k !== "name") root.setProperty(`--${k}`, v);
+  }
+}
+
+function cycleTheme() {
+  state.theme = (state.theme + 1) % THEMES.length;
+  applyTheme();
+  toast(`theme: ${THEMES[state.theme].name}`, "ok");
+}
+
+function quit() {
+  window.__TAURI__.window.getCurrentWindow().close();
+}
+
+function openHelp() {
+  if (document.querySelector(".scrim")) return;
+  const rows = [
+    ["↑ ↓", "switch section"],
+    ["r", "refresh from device"],
+    ["t", "cycle theme"],
+    ["u", "check firmware version (online)"],
+    ["?", "this help"],
+    ["q", "quit"],
+    ["Esc", "close dialog"],
+  ];
+  const scrim = el("div", "scrim");
+  const modal = el("div", "modal");
+  modal.appendChild(el("h3", null, "Keyboard shortcuts"));
+  for (const [k, d] of rows) {
+    const r = el("div", "help-row");
+    r.append(el("span", "hk", k), el("span", "hd", d));
+    modal.appendChild(r);
+  }
+  scrim.appendChild(modal);
+  scrim.onclick = (e) => { if (e.target === scrim) scrim.remove(); };
+  document.body.appendChild(scrim);
+}
+
+function onKey(e) {
+  if (e.target.tagName === "INPUT") return; // don't hijack typing in fields
+  const scrim = document.querySelector(".scrim");
+  if (e.key === "Escape") { if (scrim) scrim.remove(); return; }
+  if (scrim) return; // modal owns the keyboard
+  switch (e.key) {
+    case "ArrowDown": case "j": moveSection(1); break;
+    case "ArrowUp": case "k": moveSection(-1); break;
+    case "r": invoke("read_all"); invoke("read_buttons"); break;
+    case "t": cycleTheme(); break;
+    case "u": invoke("check_update"); break;
+    case "?": openHelp(); break;
+    case "q": quit(); break;
+    default: return;
+  }
+  e.preventDefault();
 }
 
 function paintStatus() {
@@ -344,7 +446,9 @@ function toast(msg, kind) {
 async function boot() {
   await wireEvents();
   buildRail();
+  buildKeys();
   render();
+  document.addEventListener("keydown", onKey);
   state.palettes = await invoke("palettes");
   await invoke("read_all");
   await invoke("read_buttons");
