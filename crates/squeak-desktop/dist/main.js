@@ -28,10 +28,13 @@ const THEMES = [
   { name: "Dracula", bg: "#282a36", surface: "#21222c", card: "#343746", cardhi: "#44475a", line: "#44475a", text: "#f8f8f2", sub: "#c8c9d6", dim: "#6272a4", accent: "#bd93f9", mauve: "#ff79c6", green: "#50fa7b", red: "#ff5555", peach: "#ffb86c" },
 ];
 
+const DPI_DOTS = ["#cdd6f4", "#a6e3a1", "#89b4fa", "#fab387", "#f38ba8"];
+
 const state = {
   screen: "overview",
   theme: 0,
   leftLock: true,
+  dpiSel: null,
   settings: null,
   buttons: [],
   palettes: { mouse: [], media: [], rates: [125, 500, 1000, 2000, 4000, 8000] },
@@ -293,25 +296,61 @@ function kvLine(k, v, cls) {
   return r;
 }
 
+function setDpiVal(i, v) {
+  const max = state.settings.dpi.max || 26000;
+  const val = Math.min(max, Math.max(50, Math.round(v / 50) * 50));
+  invoke("set_dpi", { index: i, value: val });
+}
+
 function dpi(m) {
   const s = state.settings;
-  m.appendChild(el("p", "sub", "Activate a preset to use it now; edit a value + Set to change it."));
+  const max = s.dpi.max || 26000;
+  if (state.dpiSel == null || state.dpiSel >= s.dpi.presets.length) state.dpiSel = s.dpi.active;
+  const sel = state.dpiSel;
+  const val = s.dpi.presets[sel];
+
+  const layout = el("div", "dpi-layout");
+
+  // left: preset list (click = activate + select for editing)
+  const list = el("div", "dpi-list");
+  list.appendChild(el("div", "dpi-levels", `Levels: ${s.dpi.count}`));
   s.dpi.presets.forEach((v, i) => {
-    const active = i === s.dpi.active;
-    const row = el("div", "row");
-
-    const use = el("button", "use" + (active ? " on" : ""), active ? "● active" : "activate");
-    use.title = "make this the active DPI stage";
-    if (!active) use.onclick = () => invoke("set_active_dpi", { index: i });
-
-    const input = el("input");
-    input.type = "number"; input.min = 50; input.max = s.dpi.max || 26000; input.step = 50; input.value = v;
-    const apply = el("button", "btn primary", "set");
-    apply.onclick = () => invoke("set_dpi", { index: i, value: Math.round(+input.value) });
-
-    row.append(use, el("span", "label", `Preset ${i + 1}`), input, apply);
-    m.appendChild(row);
+    const row = el("div", "dpi-row" + (i === sel ? " sel" : "") + (i === s.dpi.active ? " active" : ""));
+    const dot = el("span", "dpi-dot");
+    dot.style.background = DPI_DOTS[i % DPI_DOTS.length];
+    row.append(dot, el("span", "dpi-val", v));
+    if (i === s.dpi.active) row.append(el("span", "dpi-tag", "active"));
+    row.onclick = () => { state.dpiSel = i; if (i !== s.dpi.active) invoke("set_active_dpi", { index: i }); render(); };
+    list.appendChild(row);
   });
+
+  // right: value stepper + gradient slider
+  const ed = el("div", "dpi-editor");
+  ed.append(
+    el("h2", "ed-title", "DPI Settings"),
+    el("p", "sub", "DPI sets cursor sensitivity — higher moves the cursor farther for the same hand movement."),
+  );
+  const stepper = el("div", "dpi-stepper");
+  const minus = el("button", "step", "−");
+  const num = el("span", "dpi-num", String(val));
+  const plus = el("button", "step", "+");
+  minus.onclick = () => setDpiVal(sel, val - 50);
+  plus.onclick = () => setDpiVal(sel, val + 50);
+  stepper.append(minus, num, plus);
+
+  const slider = el("input");
+  slider.type = "range"; slider.min = 50; slider.max = max; slider.step = 50; slider.value = val;
+  slider.className = "dpi-slider";
+  slider.oninput = () => { num.textContent = slider.value; };
+  slider.onchange = () => setDpiVal(sel, +slider.value);
+
+  const ticks = el("div", "dpi-ticks");
+  // evenly spaced so labels line up with the linear slider
+  [50, 6500, 13000, 19500, max].forEach((t) => ticks.append(el("span", null, String(t))));
+
+  ed.append(stepper, slider, ticks);
+  layout.append(list, ed);
+  m.appendChild(layout);
 }
 
 function polling(m) {
