@@ -1,7 +1,7 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-const LOD = { 1: "0.7 mm", 2: "2.0 mm", 3: "1.0 mm" }; // device codes (0 is not settable)
+const LOD = { 1: "1.0 mm", 2: "2.0 mm", 3: "0.7 mm" }; // device codes (0 is not settable)
 const SCREENS = [
   ["overview", "▤", "Overview"],
   ["dpi", "⊙", "DPI"],
@@ -401,7 +401,7 @@ function polling(m) {
 
 function sensor(m) {
   const s = state.settings.sensor;
-  m.appendChild(segRow("Lift-off distance", [["0.7 mm", 1], ["1.0 mm", 3], ["2.0 mm", 2]], s.lod,
+  m.appendChild(segRow("Lift-off distance", [["0.7 mm", 3], ["1.0 mm", 1], ["2.0 mm", 2]], s.lod,
     (v) => invoke("set_lod", { value: v })));
   m.appendChild(segRow("Scroll direction", [["normal", false], ["inverted", true]], s.scrollInverted,
     (v) => invoke("set_scroll", { inverted: v })));

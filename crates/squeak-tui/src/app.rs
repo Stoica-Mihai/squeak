@@ -18,7 +18,7 @@ use crate::theme::{self, Theme};
 use squeak_core::worker::{Cmd, Update};
 
 /// LOD device codes in display order: 0.7, 1.0, 2.0 mm.
-const LOD_ORDER: [u8; 3] = [1, 3, 2];
+const LOD_ORDER: [u8; 3] = [3, 1, 2];
 const ANGLE_MAX: u8 = 90;
 const ANGLE_STEP: u8 = 5;
 const DEBOUNCE_MAX: u8 = 30;

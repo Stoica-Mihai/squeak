@@ -121,9 +121,9 @@ fn row_line(app: &App, row: SensorRow, th: Theme) -> Line<'static> {
 /// LOD device code (1/2/3) -> the Launcher's millimetre label.
 fn lod_mm(v: u8) -> &'static str {
     match v {
-        1 => "0.7 mm",
+        1 => "1.0 mm",
         2 => "2.0 mm",
-        3 => "1.0 mm",
+        3 => "0.7 mm",
         _ => "? mm",
     }
 }
