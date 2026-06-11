@@ -33,8 +33,8 @@ body {
   border-bottom: 1px solid var(--line);
   flex: 0 0 auto;
 }
-.brand { color: var(--accent); font-weight: 700; letter-spacing: .3px; }
-.diamond { color: var(--mauve); }
+.brand { display: inline-flex; align-items: center; gap: 7px; color: var(--accent); font-weight: 700; letter-spacing: .3px; }
+.logo { width: 20px; height: 20px; flex: 0 0 auto; }
 .sep { color: var(--dim); }
 .dev { font-weight: 600; }
 .meta { color: var(--sub); font-size: 13px; }
