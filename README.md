@@ -1,12 +1,11 @@
-<img src="crates/squeak-desktop/icons/icon.png" alt="squeak" width="96" align="left">
-
-# squeak
+<table border="0"><tr>
+<td><img src="crates/squeak-desktop/icons/icon.png" alt="squeak" width="92"></td>
+<td><h1>squeak</h1></td>
+</tr></table>
 
 Configure Keychron mice on Linux — DPI, polling rate, sensor, buttons, macros,
 and profiles — over raw HID, replicating the web Launcher. Every write is read
 back and verified.
-
-<br clear="left">
 
 Two frontends share one verified core (`squeak-core`):
 
