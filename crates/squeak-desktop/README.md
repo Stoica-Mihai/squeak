@@ -2,9 +2,11 @@
 
 The desktop frontend — a [Tauri 2](https://tauri.app) app: a Rust backend over
 [`squeak-core`](../squeak-core) with a static HTML/CSS/JS UI rendered in the
-OS WebKit view. Same verified protocol as the TUI, rendered with CSS — cards,
-gradient sliders, theme picker. See the [root README](../../README.md)
-for the project overview, permissions, and protocol.
+OS WebKit view. Same verified protocol as the TUI, styled with the Futurism
+design system — paired light/dark themes, a single accent (with a runtime
+accent picker), square corners, and solid offset shadows. See the
+[root README](../../README.md) for the project overview, permissions, and
+protocol.
 
 Click-and-keyboard driven, needs a graphical session (no SSH/headless).
 
@@ -45,7 +47,7 @@ tauri-cli`): `cargo tauri build` → `.deb` / `.rpm` / AppImage under
 - **Overview** — device statusline (name · transport · firmware · battery) over
   cards; each card links to its edit screen.
 - **DPI** — preset list (click to activate), a stepper you can type into, and a
-  gradient slider with ticks.
+  single-hue ramp slider with ticks.
 - **Polling** — a bar chart (Office → Gaming), click a bar to set the rate.
 - **Sensor** — segmented toggles + angle degree + debounce/sleep inputs.
 - **Buttons** — table of all 16 slots; click to remap (Mouse / Media / Disable
@@ -64,8 +66,9 @@ tauri-cli`): `cargo tauri build` → `.deb` / `.rpm` / AppImage under
 
 ## Shortcuts
 
-`↑↓` switch section · `r` refresh · `t` theme picker (live preview) ·
-`u` check firmware · `?` help overlay · `q` quit · `Esc` close a dialog.
+`↑↓` switch section · `r` refresh · `u` check firmware · `?` help overlay ·
+`q` quit · `Esc` close a dialog. Theme (light/dark) and accent are set with
+the mouse from the top bar.
 
 Every edit goes through `squeak-core`'s worker (write + read-back verify);
 results show as toasts. Plug/unplug auto-refreshes (netlink uevents).
