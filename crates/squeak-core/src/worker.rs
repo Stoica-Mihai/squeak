@@ -156,38 +156,38 @@ fn handle(cmd: Cmd, dev: &mut dyn Hid) -> Vec<Update> {
         },
         Cmd::SetDpi { index, value } => {
             let r = dpi::set_dpi(dev, value, index)
-                .map(|_| format!("DPI preset {} → {value} ✓ verified", index + 1));
+                .map(|_| format!("DPI preset {} set to {value}", index + 1));
             write_then_settings(dev, r)
         }
         Cmd::SetActiveDpi(index) => {
             let r = dpi::set_active(dev, index)
-                .map(|i| format!("active DPI → preset {} ✓ verified", i + 1));
+                .map(|i| format!("active DPI set to preset {}", i + 1));
             write_then_settings(dev, r)
         }
         Cmd::SetRate { hz } => {
-            let r = polling::set_rate(dev, hz).map(|_| format!("polling → {hz} Hz ✓ verified"));
+            let r = polling::set_rate(dev, hz).map(|_| format!("polling set to {hz} Hz"));
             write_then_settings(dev, r)
         }
         Cmd::SetSensor(fields) => {
-            let r = sensor::set_sensor(dev, fields).map(|_| "sensor ✓ verified".to_string());
+            let r = sensor::set_sensor(dev, fields).map(|_| "sensor updated".to_string());
             write_then_settings(dev, r)
         }
         Cmd::SetAngle { degrees, enable } => {
             let r = sensor::set_angle(dev, degrees, enable).map(|a| {
                 if enable {
-                    format!("angle snap → {a}° ✓ verified")
+                    format!("angle snap set to {a}°")
                 } else {
-                    "angle snap off ✓ verified".to_string()
+                    "angle snap turned off".to_string()
                 }
             });
             write_then_settings(dev, r)
         }
         Cmd::SetDebounce(ms) => {
-            let r = system::set_debounce(dev, ms).map(|v| format!("debounce → {v} ms ✓ verified"));
+            let r = system::set_debounce(dev, ms).map(|v| format!("debounce set to {v} ms"));
             write_then_settings(dev, r)
         }
         Cmd::SetSleep(minutes) => {
-            let r = system::set_sleep(dev, minutes).map(|v| format!("sleep → {v} min ✓ verified"));
+            let r = system::set_sleep(dev, minutes).map(|v| format!("sleep set to {v} min"));
             write_then_settings(dev, r)
         }
         Cmd::FactoryReset => {
@@ -195,31 +195,31 @@ fn handle(cmd: Cmd, dev: &mut dyn Hid) -> Vec<Update> {
             write_then_settings(dev, r)
         }
         Cmd::SetProfile(index) => {
-            let r = profile::set_profile(dev, index).map(|i| format!("profile → {} ✓ verified", i + 1));
+            let r = profile::set_profile(dev, index).map(|i| format!("switched to profile {}", i + 1));
             write_then_settings(dev, r)
         }
         Cmd::SetButtonMouse { id, action } => {
             let r = buttons::set_mouse(dev, id, &action)
-                .map(|b| format!("button {id} → {} ✓ verified", b.label));
+                .map(|b| format!("button {id} set to {}", b.label));
             write_then_buttons(dev, r)
         }
         Cmd::SetButtonMedia { id, action } => {
             let r = buttons::set_media(dev, id, &action)
-                .map(|b| format!("button {id} → {} ✓ verified", b.label));
+                .map(|b| format!("button {id} set to {}", b.label));
             write_then_buttons(dev, r)
         }
         Cmd::SetButtonDisable(id) => {
-            let r = buttons::disable(dev, id).map(|_| format!("button {id} disabled ✓ verified"));
+            let r = buttons::disable(dev, id).map(|_| format!("button {id} disabled"));
             write_then_buttons(dev, r)
         }
         Cmd::SetButtonDefault(id) => {
             let r = buttons::restore_default(dev, id)
-                .map(|b| format!("button {id} → {} ✓ verified", b.label));
+                .map(|b| format!("button {id} set to {}", b.label));
             write_then_buttons(dev, r)
         }
         Cmd::SetMacro { id, events } => {
             let r = macros::set_macro(dev, id, &events)
-                .map(|b| format!("macro → button {id} ✓ verified (len {})", b.data));
+                .map(|b| format!("macro set on button {id} (len {})", b.data));
             write_then_buttons(dev, r)
         }
         Cmd::CheckUpdate | Cmd::Shutdown => vec![],
