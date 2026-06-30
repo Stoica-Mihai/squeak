@@ -493,7 +493,6 @@ function onKey(e) {
     case "ArrowDown": case "j": goto(NAV[(i + 1) % NAV.length][0]); break;
     case "ArrowUp": case "k": goto(NAV[(i - 1 + NAV.length) % NAV.length][0]); break;
     case "r": doRefresh(); break;
-    case "t": toggleTheme(); break;
     case "u": checkFw(); break;
     case "?": openHelp(); break;
     case "q": quit(); break;

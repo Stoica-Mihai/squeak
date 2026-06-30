@@ -436,7 +436,6 @@ input[type=range].dpi::-moz-range-thumb{width:16px;height:30px;background:var(--
   <footer class="keybar">
     <span class="kb"><span class="keycap">↑↓</span> section</span>
     <span class="kb"><span class="keycap" onclick="doRefresh()">r</span> refresh</span>
-    <span class="kb"><span class="keycap" onclick="toggleTheme()">t</span> theme</span>
     <span class="kb"><span class="keycap" onclick="checkFw()">u</span> check fw</span>
     <span class="kb"><span class="keycap" onclick="openHelp()">?</span> help</span>
     <span class="kb"><span class="keycap" onclick="fdToast('quit — mockup, no exit')">q</span> quit</span>
@@ -484,7 +483,6 @@ input[type=range].dpi::-moz-range-thumb{width:16px;height:30px;background:var(--
       <div class="kvs" style="grid-template-columns:auto 1fr;gap:10px 18px">
         <span class="v"><span class="keycap">↑↓</span></span><span class="k">switch section</span>
         <span class="v"><span class="keycap">r</span></span><span class="k">refresh device</span>
-        <span class="v"><span class="keycap">t</span></span><span class="k">toggle theme</span>
         <span class="v"><span class="keycap">u</span></span><span class="k">check firmware</span>
         <span class="v"><span class="keycap">?</span></span><span class="k">this help</span>
         <span class="v"><span class="keycap">Esc</span></span><span class="k">close dialog</span>
@@ -922,7 +920,6 @@ document.addEventListener('keydown',function(e){
   if(e.key==='ArrowDown'){e.preventDefault();go(NAV[(idx+1)%NAV.length].id)}
   else if(e.key==='ArrowUp'){e.preventDefault();go(NAV[(idx-1+NAV.length)%NAV.length].id)}
   else if(e.key==='r'){doRefresh()}
-  else if(e.key==='t'){toggleTheme()}
   else if(e.key==='u'){checkFw()}
   else if(e.key==='?'){openHelp()}
   else if(e.key==='q'){fdToast('quit — mockup, no exit')}
