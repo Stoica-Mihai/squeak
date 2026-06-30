@@ -1,48 +1,353 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>squeak</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>squeak</title>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="status">
-    <span class="brand">
-      <svg class="logo" viewBox="0 0 512 512" aria-hidden="true">
-        <defs>
-          <linearGradient id="sqlogo" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#89b4fa"/>
-            <stop offset="0.55" stop-color="#cba6f7"/>
-            <stop offset="1" stop-color="#f38ba8"/>
-          </linearGradient>
-        </defs>
-        <circle cx="168" cy="170" r="68" fill="url(#sqlogo)"/>
-        <circle cx="344" cy="170" r="68" fill="url(#sqlogo)"/>
-        <circle cx="256" cy="300" r="135" fill="url(#sqlogo)"/>
-        <circle cx="214" cy="286" r="15" fill="var(--bg)"/>
-        <circle cx="298" cy="286" r="15" fill="var(--bg)"/>
-        <path d="M250 330 l40 34 -16 4 8 22 -12 5 -9 -22 -13 11z" fill="var(--bg)"/>
-      </svg>
+<div class="app">
+
+  <header class="topbar">
+    <button class="iconbtn menu-btn" id="menuBtn" aria-label="Menu" onclick="fdDrawer('navDrawer','navScrim')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <div class="brand">
+      <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><circle cx="168" cy="170" r="68"/><circle cx="344" cy="170" r="68"/><circle cx="256" cy="300" r="135"/><circle cx="214" cy="286" r="15" fill="var(--surf)"/><circle cx="298" cy="286" r="15" fill="var(--surf)"/><path d="M250 330 l40 34 -16 4 8 22 -12 5 -9 -22 -13 11z" fill="var(--surf)"/></svg>
       squeak
-    </span>
-    <span class="sep">│</span>
-    <span id="device" class="dev">connecting…</span>
-    <span id="meta" class="meta"></span>
-    <span class="spacer"></span>
-    <span class="gauge" id="batt-gauge"></span>
-    <span id="batt" class="batt"></span>
+    </div>
+    <div class="statusline">
+      <span class="devname" id="devName">connecting…</span>
+      <span class="meta" id="devMeta"></span>
+    </div>
+    <div class="right">
+      <div class="batt" id="batt" title="Battery">
+        <span class="cells" id="battCells"></span>
+        <span class="pct" id="battPct"></span>
+      </div>
+      <button class="switch" id="themeSwitch" onclick="toggleTheme()" aria-label="Theme">
+        <span id="thLight">LIGHT</span><span id="thDark" class="act">DARK</span>
+      </button>
+      <div class="accpick" id="accpick">
+        <button class="acctrig" aria-label="Accent color"></button>
+        <div class="accpop"></div>
+      </div>
+    </div>
   </header>
 
   <div class="body">
-    <nav class="rail" id="rail"></nav>
-    <main id="screen"></main>
+    <nav class="side nav-v" id="sideNav" aria-label="Sections"></nav>
+
+    <main class="main" id="main">
+
+      <section class="section on" data-sec="overview">
+        <div class="sechead"><span class="kick">Overview</span></div>
+        <div class="grid2">
+          <div class="card">
+            <div class="cardhead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/></svg>
+              <span class="t">DPI</span>
+            </div>
+            <div class="bignum"><span id="ovDpi">—</span><span class="unit">active</span></div>
+            <div class="seg" id="ovDpiChips" style="margin-top:10px;flex-wrap:wrap"></div>
+          </div>
+          <button type="button" class="card link" data-goto="polling">
+            <div class="cardhead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v9l6 3"/><circle cx="12" cy="12" r="9"/></svg>
+              <span class="t">Polling rate</span>
+            </div>
+            <div class="bignum"><span id="ovPoll">—</span><span class="unit">Hz</span></div>
+            <p style="margin-top:8px">125 · 500 · 1000 · 2000 · 4000 · 8000</p>
+          </button>
+          <button type="button" class="card link" data-goto="sensor">
+            <div class="cardhead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+              <span class="t">Sensor</span>
+            </div>
+            <div class="kvs" style="margin-top:6px">
+              <span class="k">LOD</span><span class="v" id="ovLod">—</span>
+              <span class="k">scroll</span><span class="v" id="ovScroll">—</span>
+              <span class="k">motion</span><span class="v" id="ovMotion">—</span>
+              <span class="k">angle</span><span class="v" id="ovAngle">—</span>
+            </div>
+          </button>
+          <button type="button" class="card link" data-goto="sensor">
+            <div class="cardhead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="3"/></svg>
+              <span class="t">Timing &amp; power</span>
+            </div>
+            <div class="kvs" style="margin-top:6px">
+              <span class="k">debounce</span><span class="v" id="ovDeb">—</span>
+              <span class="k">sleep</span><span class="v" id="ovSleep">—</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <section class="section" data-sec="dpi">
+        <div class="sechead"><span class="kick">DPI</span></div>
+        <div class="dpilayout">
+          <div>
+            <label style="margin-bottom:10px">Levels: <span id="dpiCount">—</span></label>
+            <div class="preset-list" id="presetList"></div>
+          </div>
+          <div>
+            <h3>DPI Settings</h3>
+            <p>DPI sets cursor sensitivity — higher moves the cursor farther for the same hand movement.</p>
+            <div class="stepper big">
+              <button onclick="stepDpi(-50)" aria-label="Decrease DPI">−</button>
+              <input class="num" id="dpiNum" type="text" inputmode="numeric" aria-label="DPI value" value="" oninput="onDpiType(this.value)" onchange="commitDpi()" onkeydown="if(event.key==='Enter'){event.preventDefault();commitDpi();this.blur()}">
+              <button onclick="stepDpi(50)" aria-label="Increase DPI">+</button>
+            </div>
+            <div class="slider-wrap">
+              <input type="range" class="dpi" id="dpiSlider" min="50" max="26000" step="50" value="50" oninput="onSlider(this.value)" onchange="commitDpi()">
+              <div class="ticks" id="dpiTicks"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" data-sec="polling">
+        <div class="sechead"><span class="kick">Polling</span></div>
+        <div class="pollwrap">
+          <span class="endcap">Office</span>
+          <div class="bars" id="pollBars"></div>
+          <span class="endcap">Gaming</span>
+        </div>
+      </section>
+
+      <section class="section" data-sec="sensor">
+        <div class="sechead"><span class="kick">Sensor</span></div>
+        <div id="sensorRows"></div>
+      </section>
+
+      <section class="section" data-sec="buttons">
+        <div class="sechead"><span class="kick">Buttons</span></div>
+        <div class="card lockcard">
+          <div>
+            <h3 style="margin:0 0 4px">Left Click Lock</h3>
+            <p style="margin:0">While on, the left button cannot be remapped.</p>
+          </div>
+          <div class="lockctl">
+            <span>Unlock</span>
+            <button class="toggle on" id="lockToggle" onclick="toggleLock()" aria-label="Left click lock"><i></i></button>
+            <span>Lock</span>
+          </div>
+        </div>
+        <table class="btntable">
+          <thead><tr><th style="width:50px">id</th><th>button</th><th style="width:120px">type</th><th>assignment</th><th style="width:40px"></th></tr></thead>
+          <tbody id="btnRows"></tbody>
+        </table>
+      </section>
+
+      <section class="section" data-sec="profiles">
+        <div class="sechead"><span class="kick">Profiles</span></div>
+        <div id="profileList" role="listbox" aria-label="Active profile" style="max-width:380px;display:flex;flex-direction:column;gap:12px"></div>
+        <p class="note">switching reloads the whole config from the new profile</p>
+      </section>
+
+    </main>
   </div>
 
-  <footer class="keys" id="keys"></footer>
+  <footer class="keybar">
+    <span class="kb"><span class="keycap">↑↓</span> section</span>
+    <span class="kb"><span class="keycap" onclick="doRefresh()">r</span> refresh</span>
+    <span class="kb"><span class="keycap" onclick="toggleTheme()">t</span> theme</span>
+    <span class="kb"><span class="keycap" onclick="checkFw()">u</span> check fw</span>
+    <span class="kb"><span class="keycap" onclick="openHelp()">?</span> help</span>
+    <span class="kb"><span class="keycap" onclick="quit()">q</span> quit</span>
+  </footer>
+</div>
 
-  <div id="toast" class="toast"></div>
+<div class="scrim-bg" id="navScrim" onclick="fdDrawer('navDrawer','navScrim')"></div>
+<nav class="drawer" id="navDrawer" aria-label="Sections"><div class="nav-v" id="sideNavMobile" style="padding:14px 0"></div></nav>
 
-  <script src="main.js"></script>
+<dialog id="remapModal">
+  <div class="modal">
+    <div class="mhead"><h2 id="remapTitle">Remap button</h2></div>
+    <div class="mbody">
+      <div style="margin-bottom:14px">
+        <label>Type</label>
+        <div class="seg" id="remapType">
+          <button data-t="mouse" onclick="pickType('mouse')">Mouse</button>
+          <button data-t="media" onclick="pickType('media')">Media</button>
+          <button data-t="disable" onclick="pickType('disable')">Disable</button>
+          <button data-t="default" onclick="pickType('default')">Default</button>
+        </div>
+      </div>
+      <div id="remapAssignWrap">
+        <label id="remapAssignLabel">Action</label>
+        <div class="opts" id="remapOpts"></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeRemap()"><span>Cancel</span></button>
+      <div class="grp"><button class="btn btn-primary" id="remapApply" autofocus onclick="saveRemap()"><span>Apply &amp; verify</span></button></div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="helpModal">
+  <div class="modal">
+    <div class="mhead"><h2>Shortcuts</h2></div>
+    <div class="mbody">
+      <div class="kvs" style="grid-template-columns:auto 1fr;gap:10px 18px">
+        <span class="v"><span class="keycap">↑↓</span></span><span class="k">switch section</span>
+        <span class="v"><span class="keycap">r</span></span><span class="k">refresh from device</span>
+        <span class="v"><span class="keycap">t</span></span><span class="k">toggle theme</span>
+        <span class="v"><span class="keycap">u</span></span><span class="k">check firmware (online)</span>
+        <span class="v"><span class="keycap">?</span></span><span class="k">this help</span>
+        <span class="v"><span class="keycap">q</span></span><span class="k">quit</span>
+        <span class="v"><span class="keycap">Esc</span></span><span class="k">close dialog</span>
+      </div>
+      <p style="margin-top:14px">Every edit goes through squeak-core's worker: write + read-back verify. Results show as toasts.</p>
+    </div>
+    <div class="mfoot"><span class="k" style="color:var(--muted);font-size:12px">squeak · futurism design</span><div class="grp"><button class="btn btn-ink" autofocus onclick="document.getElementById('helpModal').close()"><span>Close</span></button></div></div>
+  </div>
+</dialog>
+
+<script>
+/* ===== Futurism Design System JS (vendored from futurism-design 0.6.9) ===== */
+function fdOptValue(o){return o.dataset.value!==undefined?o.dataset.value:o.textContent}
+function fdSelPosition(sel){
+  var list=sel.querySelector('.sel-list'),v=sel.querySelector('.sel-val');
+  if(!list||!v)return;
+  var r=v.getBoundingClientRect();
+  var h=Math.min(list.scrollHeight,240);
+  var below=window.innerHeight-r.bottom,up=below<h+8&&r.top>below;
+  list.style.left=r.left+'px';
+  list.style.width=r.width+'px';
+  list.style.top=(up?r.top-h-4:r.bottom+4)+'px';
+  list.style.transformOrigin=up?'bottom':'top';
+}
+function fdSelOpen(sel,open){
+  if(open)document.querySelectorAll('.sel.open').forEach(function(o){if(o!==sel)fdSelOpen(o,false)});
+  sel.classList.toggle('open',open);
+  var v=sel.querySelector('.sel-val');
+  if(v)v.setAttribute('aria-expanded',open?'true':'false');
+  if(!sel._fdReposition)sel._fdReposition=function(){fdSelPosition(sel)};
+  if(open){
+    fdSelPosition(sel);
+    window.addEventListener('scroll',sel._fdReposition,true);
+    window.addEventListener('resize',sel._fdReposition);
+    var cur=sel.querySelector('.sel-opt.sel-on')||sel.querySelector('.sel-opt');if(cur)cur.focus();
+  }else{
+    window.removeEventListener('scroll',sel._fdReposition,true);
+    window.removeEventListener('resize',sel._fdReposition);
+  }
+}
+function fdSel(opt){
+  var sel=opt.closest('.sel');
+  sel.querySelectorAll('.sel-opt').forEach(function(o){o.classList.remove('sel-on');o.setAttribute('aria-selected','false')});
+  opt.classList.add('sel-on');opt.setAttribute('aria-selected','true');
+  sel.querySelector('.sel-cur').textContent=opt.textContent;
+  sel.dataset.value=fdOptValue(opt);
+  fdSelOpen(sel,false);
+  var v=sel.querySelector('.sel-val');if(v)v.focus();
+}
+function fdSelVal(sel){return sel?(sel.dataset.value||''):''}
+var fdUid=0;
+function fdId(el,prefix){if(!el.id)el.id=prefix+(fdUid++);return el.id}
+function fdInit(root){
+  root=root||document;
+  root.querySelectorAll('.sel').forEach(function(sel){
+    var v=sel.querySelector('.sel-val'),list=sel.querySelector('.sel-list');
+    if(list)list.setAttribute('role','listbox');
+    if(v){v.setAttribute('role','button');v.setAttribute('aria-haspopup','listbox');v.setAttribute('aria-expanded','false');
+      if(list)v.setAttribute('aria-controls',fdId(list,'fd-list-'));if(!v.hasAttribute('tabindex'))v.tabIndex=0}
+    sel.querySelectorAll('.sel-opt').forEach(function(o){o.setAttribute('role','option');o.setAttribute('aria-selected',o.classList.contains('sel-on')?'true':'false');o.tabIndex=-1});
+  });
+  root.querySelectorAll('.toggle').forEach(function(t){
+    if(t.tagName!=='BUTTON'){t.setAttribute('role','switch');if(!t.hasAttribute('tabindex'))t.tabIndex=0}
+    t.setAttribute('aria-checked',t.classList.contains('on')?'true':'false');
+  });
+}
+if(document.readyState!=='loading')fdInit();else document.addEventListener('DOMContentLoaded',function(){fdInit()});
+function fdTheme(root){root=root||document.documentElement;root.setAttribute('data-theme',root.getAttribute('data-theme')==='dark'?'light':'dark')}
+function fdToast(msg,opts){
+  opts=opts||{};
+  var wrap=document.querySelector('.toaster');
+  if(!wrap){wrap=document.createElement('div');wrap.className='toaster';wrap.setAttribute('role','status');wrap.setAttribute('aria-live','polite');document.body.appendChild(wrap)}
+  var t=document.createElement('div');
+  t.className='toast'+(opts.type==='err'?' err':'');
+  t.textContent=msg;
+  wrap.appendChild(t);
+  setTimeout(function(){t.classList.add('out');setTimeout(function(){if(t.parentNode)t.remove()},220)},opts.timeout||3200);
+  return t;
+}
+function fdDrawer(panel,scrim){
+  panel=typeof panel==='string'?document.getElementById(panel):panel;
+  if(!panel)return;
+  var open=panel.classList.toggle('drawer-open');
+  scrim=typeof scrim==='string'?document.getElementById(scrim):scrim;
+  if(scrim)scrim.style.display=open?'block':'none';
+}
+function fdAccent(pick,accents,onChange){
+  pick=typeof pick==='string'?document.getElementById(pick):pick;
+  if(!pick)return;
+  var trig=pick.querySelector('.acctrig'),pop=pick.querySelector('.accpop'),current;
+  var saved=localStorage.getItem('fd-accent')||accents[0].name;
+  function dark(){return document.documentElement.getAttribute('data-theme')==='dark'}
+  function apply(a){
+    current=a;
+    var col=dark()?a.dark:a.light,r=document.documentElement.style;
+    r.setProperty('--accent',col);
+    r.setProperty('--shadow',dark()?col:'#1a1714');
+    localStorage.setItem('fd-accent',a.name);
+    if(trig)trig.style.background=col;
+    render(a);
+    if(onChange)onChange(a);
+  }
+  function render(cur){
+    if(!pop)return;pop.innerHTML='';
+    accents.forEach(function(a){
+      var s=document.createElement('button');
+      var on=a.name===cur.name;
+      s.className='acc'+(on?' on':'');
+      s.style.background=dark()?a.dark:a.light;s.title=a.name;
+      s.setAttribute('aria-label',a.name);s.setAttribute('aria-pressed',on?'true':'false');
+      s.onclick=function(){apply(a);pick.classList.remove('open');if(trig)trig.setAttribute('aria-expanded','false')};
+      pop.appendChild(s);
+    });
+  }
+  if(trig){
+    trig.setAttribute('aria-haspopup','true');trig.setAttribute('aria-expanded','false');
+    trig.onclick=function(){var o=pick.classList.toggle('open');trig.setAttribute('aria-expanded',o?'true':'false')};
+  }
+  apply(accents.find(function(a){return a.name===saved})||accents[0]);
+  if(pick._fdObs)pick._fdObs.disconnect();
+  pick._fdObs=new MutationObserver(function(){if(current)apply(current)});
+  pick._fdObs.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+}
+document.addEventListener('click',function(e){
+  var val=e.target.closest('.sel-val');
+  if(val){var s=val.closest('.sel');fdSelOpen(s,!s.classList.contains('open'))}
+  var op=e.target.closest('.sel-opt');
+  if(op){fdSel(op)}
+  document.querySelectorAll('.sel.open').forEach(function(s){if(!s.contains(e.target))fdSelOpen(s,false)});
+  document.querySelectorAll('.accpick.open').forEach(function(p){if(!p.contains(e.target)){p.classList.remove('open');var t=p.querySelector('.acctrig');if(t)t.setAttribute('aria-expanded','false')}});
+},false);
+document.addEventListener('keydown',function(e){
+  if(!e.target||!e.target.closest)return;
+  var sel=e.target.closest('.sel');
+  if(sel){
+    var opts=Array.prototype.slice.call(sel.querySelectorAll('.sel-opt'));
+    var open=sel.classList.contains('open'),i=opts.indexOf(e.target);
+    if(e.key==='ArrowDown'){e.preventDefault();if(!open)fdSelOpen(sel,true);else if(i<opts.length-1)opts[i+1].focus()}
+    else if(e.key==='ArrowUp'){e.preventDefault();if(i>0)opts[i-1].focus()}
+    else if(e.key==='Enter'||e.key===' '){e.preventDefault();if(!open)fdSelOpen(sel,true);else if(i>-1)fdSel(opts[i])}
+    else if(e.key==='Escape'){if(open){e.preventDefault();fdSelOpen(sel,false);var v=sel.querySelector('.sel-val');if(v)v.focus()}}
+    else if(e.key==='Tab'){if(open)fdSelOpen(sel,false)}
+    return;
+  }
+  if(e.key==='Escape'){
+    document.querySelectorAll('.accpick.open').forEach(function(p){p.classList.remove('open');var t=p.querySelector('.acctrig');if(t){t.setAttribute('aria-expanded','false');t.focus()}});
+    var drawers=document.querySelectorAll('.drawer.drawer-open');
+    if(drawers.length){drawers.forEach(function(d){d.classList.remove('drawer-open')});document.querySelectorAll('.scrim-bg').forEach(function(s){s.style.display='none'})}
+  }
+},false);
+</script>
+<script src="main.js"></script>
 </body>
 </html>

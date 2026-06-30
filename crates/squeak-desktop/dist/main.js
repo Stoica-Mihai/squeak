@@ -2,37 +2,43 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 const LOD = { 1: "1.0 mm", 2: "2.0 mm", 3: "0.7 mm" }; // device codes (0 is not settable)
-const SCREENS = [
-  ["overview", "▤", "Overview"],
-  ["dpi", "⊙", "DPI"],
-  ["polling", "⟳", "Polling"],
-  ["sensor", "◎", "Sensor"],
-  ["buttons", "⊞", "Buttons"],
-  ["profiles", "❏", "Profiles"],
+
+// Sidebar sections — inline stroke SVG icons (currentColor, square/miter).
+const NAV = [
+  ["overview", "Overview", '<rect x="3" y="4" width="18" height="16"/><path d="M3 9h18"/>'],
+  ["dpi", "DPI", '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/>'],
+  ["polling", "Polling", '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+  ["sensor", "Sensor", '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'],
+  ["buttons", "Buttons", '<rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/>'],
+  ["profiles", "Profiles", '<rect x="4" y="4" width="16" height="16"/><path d="M4 9h16"/>'],
 ];
 
-const KEYS = [
-  ["↑↓", "section"],
-  ["r", "refresh"],
-  ["t", "theme"],
-  ["u", "check fw"],
-  ["?", "help"],
-  ["q", "quit"],
+const LOCK_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="miter"><rect x="5" y="11" width="14" height="9"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"><path d="M4 12l5 5L20 6"/></svg>';
+const BOLT_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" style="margin-right:3px;vertical-align:-1px"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>';
+
+const ACCENTS = [
+  { name: "red", light: "#d22f1a", dark: "#ff4d33" },
+  { name: "orange", light: "#d2691a", dark: "#ff8c33" },
+  { name: "amber", light: "#bd8b00", dark: "#ffc233" },
+  { name: "green", light: "#2f8a3e", dark: "#54d168" },
+  { name: "teal", light: "#0d8a85", dark: "#33d6cf" },
+  { name: "blue", light: "#1a5fd2", dark: "#4d8cff" },
+  { name: "violet", light: "#7a3ad2", dark: "#a366ff" },
+  { name: "pink", light: "#c81a7a", dark: "#ff4da6" },
 ];
 
-// Palettes ported from the TUI (theme.rs). Cycled with `t`.
-const THEMES = [
-  { name: "Mocha", bg: "#1e1e2e", surface: "#11111b", card: "#24273a", cardhi: "#2a2d44", line: "#313244", text: "#cdd6f4", sub: "#a6adc8", dim: "#6c7086", accent: "#89b4fa", mauve: "#cba6f7", green: "#a6e3a1", red: "#f38ba8", peach: "#fab387" },
-  { name: "Gruvbox", bg: "#282828", surface: "#1d2021", card: "#32302f", cardhi: "#3c3836", line: "#504945", text: "#ebdbb2", sub: "#bdae93", dim: "#928374", accent: "#fabd2f", mauve: "#d3869b", green: "#b8bb26", red: "#fb4934", peach: "#fe8019" },
-  { name: "Nord", bg: "#2e3440", surface: "#272c36", card: "#3b4252", cardhi: "#434c5e", line: "#434c5e", text: "#d8dee9", sub: "#aeb8c9", dim: "#4c566a", accent: "#88c0d0", mauve: "#b48ead", green: "#a3be8c", red: "#bf616a", peach: "#d08770" },
-  { name: "Dracula", bg: "#282a36", surface: "#21222c", card: "#343746", cardhi: "#44475a", line: "#44475a", text: "#f8f8f2", sub: "#c8c9d6", dim: "#6272a4", accent: "#bd93f9", mauve: "#ff79c6", green: "#50fa7b", red: "#ff5555", peach: "#ffb86c" },
-];
-
-const DPI_DOTS = ["#cdd6f4", "#a6e3a1", "#89b4fa", "#fab387", "#f38ba8"];
+const ACTION_LABELS = {
+  leftDouble: "Double-click",
+  upScroll: "Scroll ↑", downScroll: "Scroll ↓",
+  leftScroll: "Scroll ←", rightScroll: "Scroll →",
+};
+function pretty(n) {
+  return ACTION_LABELS[n] || n.charAt(0).toUpperCase() + n.slice(1);
+}
 
 const state = {
   screen: "overview",
-  theme: 0,
   leftLock: true,
   dpiSel: null,
   settings: null,
@@ -48,6 +54,15 @@ const el = (tag, cls, txt) => {
   return e;
 };
 
+// make a non-native element keyboard-operable like a button
+function kbd(node, fn, checked) {
+  node.setAttribute("role", "button");
+  node.tabIndex = 0;
+  if (checked !== undefined) node.setAttribute("aria-pressed", checked ? "true" : "false");
+  node.onclick = fn;
+  node.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); } };
+}
+
 // ---- events ----------------------------------------------------------------
 
 async function wireEvents() {
@@ -55,17 +70,17 @@ async function wireEvents() {
   // connected/settings events fire before listeners attach and are lost.
   await Promise.all([
     listen("connected", (e) => {
-      $("device").textContent = e.payload.name;
-      $("meta").textContent = `· ${e.payload.transport} · fw ${e.payload.firmware}`;
+      $("devName").textContent = e.payload.name;
+      $("devMeta").textContent = `· ${e.payload.transport} · fw ${e.payload.firmware}`;
     }),
     listen("settings", (e) => {
       state.settings = e.payload;
-      paintStatus();
-      render();
+      paintBattery();
+      renderAll();
     }),
     listen("buttons", (e) => {
       state.buttons = e.payload;
-      if (state.screen === "buttons") render();
+      renderButtons();
     }),
     listen("written", (e) => toast(e.payload.ok ? e.payload.msg : friendlyError(e.payload.msg), e.payload.ok ? "ok" : "err")),
     listen("firmware", (e) => {
@@ -73,127 +88,413 @@ async function wireEvents() {
       toast(v ? `firmware: latest is ${v}` : "firmware check failed (offline?)", v ? "ok" : "err");
     }),
     listen("error", (e) => {
-      $("device").textContent = "Disconnected";
-      $("meta").textContent = "";
+      $("devName").textContent = "Disconnected";
+      $("devMeta").textContent = "";
+      $("battCells").innerHTML = "";
+      $("battPct").textContent = "";
       toast(friendlyError(e.payload.message), "err");
     }),
   ]);
 }
 
-// ---- keyboard + footer keybar ----------------------------------------------
+function paintBattery() {
+  const b = state.settings?.battery;
+  if (!b) { $("battCells").innerHTML = ""; $("battPct").textContent = ""; return; }
+  const segs = 10;
+  const filled = Math.round((b.percent / 100) * segs);
+  const cells = $("battCells");
+  cells.innerHTML = "";
+  for (let i = 0; i < segs; i++) cells.appendChild(el("span", "cell" + (i < filled ? "" : " off")));
+  $("battPct").innerHTML = (b.charging ? BOLT_SVG : "") + `${b.percent}%`;
+  $("batt").title = `Battery ${b.percent}%${b.charging ? " (charging)" : ""}`;
+}
 
-function buildKeys() {
-  const f = $("keys");
-  f.innerHTML = "";
-  for (const [k, l] of KEYS) {
-    const g = el("span", "grp");
-    g.append(el("span", "k", k), el("span", "kg", l));
-    f.appendChild(g);
+// ---- shell -----------------------------------------------------------------
+
+function buildNav(host) {
+  host.innerHTML = "";
+  for (const [id, name, icon] of NAV) {
+    const b = document.createElement("button");
+    if (id === state.screen) b.setAttribute("aria-current", "page");
+    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="miter">${icon}</svg>${name}`;
+    b.onclick = () => goto(id);
+    host.appendChild(b);
   }
 }
 
-function moveSection(d) {
-  const i = SCREENS.findIndex((x) => x[0] === state.screen);
-  const n = (i + d + SCREENS.length) % SCREENS.length;
-  state.screen = SCREENS[n][0];
-  buildRail();
-  render();
+function goto(id) {
+  state.screen = id;
+  document.querySelectorAll(".section").forEach((s) => s.classList.toggle("on", s.dataset.sec === id));
+  buildNav($("sideNav"));
+  buildNav($("sideNavMobile"));
+  const nd = $("navDrawer");
+  if (nd.classList.contains("drawer-open")) fdDrawer("navDrawer", "navScrim");
+  $("main").scrollTop = 0;
 }
 
-function applyTheme() {
-  const t = THEMES[state.theme];
-  const root = document.documentElement.style;
-  for (const [k, v] of Object.entries(t)) {
-    if (k !== "name") root.setProperty(`--${k}`, v);
-  }
+function renderAll() {
+  renderOverview();
+  renderDpi();
+  renderPoll();
+  renderSensor();
+  renderButtons();
+  renderProfiles();
 }
 
-// Theme picker: live-preview on hover/arrows, swatches, ↵ confirm / esc revert.
-function openThemePicker() {
-  if (document.querySelector(".scrim")) return;
-  const prev = state.theme;
-  let cur = state.theme;
-  const scrim = el("div", "scrim");
-  const modal = el("div", "modal");
-  modal.appendChild(el("h3", null, "Theme"));
+// ---- overview --------------------------------------------------------------
 
-  const rows = [];
-  const mark = () => rows.forEach((r, i) => r.classList.toggle("sel", i === cur));
-  const preview = (i) => { cur = i; state.theme = i; applyTheme(); mark(); };
-  THEMES.forEach((t, i) => {
-    const row = el("div", "theme-opt");
-    const sw = el("span", "swatches");
-    for (const k of ["bg", "surface", "accent", "green", "peach", "red", "mauve"]) {
-      const d = el("span", "sw");
-      d.style.background = t[k];
-      sw.appendChild(d);
-    }
-    row.append(el("span", "tname", t.name), sw);
-    row.onmouseenter = () => preview(i);
-    row.onclick = () => finish(true);
-    rows.push(row);
-    modal.appendChild(row);
+function renderOverview() {
+  const s = state.settings;
+  if (!s) return;
+  $("ovDpi").textContent = s.dpi.presets[s.dpi.active] ?? "—";
+  $("ovPoll").textContent = s.pollingHz || "—";
+  $("ovLod").textContent = LOD[s.sensor.lod] ?? "?";
+  $("ovScroll").textContent = s.sensor.scrollInverted ? "inverted" : "normal";
+  $("ovMotion").innerHTML = s.sensor.motion ? '<span class="dot"></span> on' : "off";
+  $("ovAngle").textContent = s.sensor.angle === 0 ? "off" : `${s.sensor.angle}°`;
+  $("ovDeb").textContent = `${s.debounce} ms`;
+  $("ovSleep").textContent = `${s.sleepMin} min`;
+
+  const c = $("ovDpiChips");
+  c.innerHTML = "";
+  s.dpi.presets.forEach((v, i) => {
+    const b = el("button", i === s.dpi.active ? "on" : "", String(v));
+    b.onclick = (ev) => { ev.stopPropagation(); if (i !== s.dpi.active) invoke("set_active_dpi", { index: i }); };
+    c.appendChild(b);
   });
-  modal.appendChild(el("p", "sub", "↑↓ preview · ↵ apply · esc cancel"));
-  scrim.appendChild(modal);
-  document.body.appendChild(scrim);
-  mark();
-
-  function finish(ok) {
-    if (!ok) { state.theme = prev; applyTheme(); }
-    document.removeEventListener("keydown", onPickKey, true);
-    scrim.remove();
-  }
-  function onPickKey(e) {
-    e.stopPropagation();
-    if (e.key === "Escape") finish(false);
-    else if (e.key === "Enter") finish(true);
-    else if (e.key === "ArrowDown" || e.key === "j") { preview((cur + 1) % THEMES.length); e.preventDefault(); }
-    else if (e.key === "ArrowUp" || e.key === "k") { preview((cur - 1 + THEMES.length) % THEMES.length); e.preventDefault(); }
-  }
-  document.addEventListener("keydown", onPickKey, true);
-  scrim.onclick = (e) => { if (e.target === scrim) finish(false); };
 }
 
-function quit() {
-  window.__TAURI__.window.getCurrentWindow().close();
+// ---- dpi --------------------------------------------------------------------
+
+function dpiMax() { return state.settings?.dpi.max || 26000; }
+
+function setDpiVal(i, v) {
+  const max = dpiMax();
+  const val = Math.min(max, Math.max(50, Math.round(v / 50) * 50));
+  invoke("set_dpi", { index: i, value: val });
 }
 
-function openHelp() {
-  if (document.querySelector(".scrim")) return;
-  const rows = [
-    ["↑ ↓", "switch section"],
-    ["r", "refresh from device"],
-    ["t", "cycle theme"],
-    ["u", "check firmware version (online)"],
-    ["?", "this help"],
-    ["q", "quit"],
-    ["Esc", "close dialog"],
-  ];
-  const scrim = el("div", "scrim");
-  const modal = el("div", "modal");
-  modal.appendChild(el("h3", null, "Keyboard shortcuts"));
-  for (const [k, d] of rows) {
-    const r = el("div", "help-row");
-    r.append(el("span", "hk", k), el("span", "hd", d));
-    modal.appendChild(r);
-  }
-  scrim.appendChild(modal);
-  scrim.onclick = (e) => { if (e.target === scrim) scrim.remove(); };
-  document.body.appendChild(scrim);
+function renderDpi() {
+  const s = state.settings;
+  const list = $("presetList");
+  if (!s) { list.innerHTML = ""; list.appendChild(el("p", "note", "reading device…")); return; }
+  if (state.dpiSel == null || state.dpiSel >= s.dpi.presets.length) state.dpiSel = s.dpi.active;
+  const sel = state.dpiSel;
+
+  $("dpiCount").textContent = s.dpi.count;
+  list.innerHTML = "";
+  const n = s.dpi.presets.length;
+  s.dpi.presets.forEach((v, i) => {
+    const pct = n > 1 ? Math.round(25 + i * (75 / (n - 1))) : 75;
+    const row = el("div", "preset" + (i === sel ? " active" : ""));
+    const sw = el("span", "swatch");
+    sw.style.background = `color-mix(in srgb, var(--accent) ${pct}%, var(--muted))`;
+    row.append(sw, el("span", null, String(v)));
+    if (i === s.dpi.active) row.appendChild(el("span", "active-tag", "active"));
+    row.setAttribute("aria-label", `${v} DPI${i === s.dpi.active ? " (active)" : ""}`);
+    kbd(row, () => { state.dpiSel = i; if (i !== s.dpi.active) invoke("set_active_dpi", { index: i }); else renderDpi(); }, i === s.dpi.active);
+    list.appendChild(row);
+  });
+
+  const max = dpiMax();
+  const val = s.dpi.presets[sel];
+  $("dpiNum").value = val;
+  const slider = $("dpiSlider");
+  slider.max = max;
+  slider.value = val;
+
+  const ticks = $("dpiTicks");
+  ticks.innerHTML = "";
+  const q = Math.round(max / 4);
+  [50, q, q * 2, q * 3, max].forEach((t) => ticks.appendChild(el("span", null, String(t))));
 }
+
+function stepDpi(d) {
+  const s = state.settings;
+  if (!s) return;
+  setDpiVal(state.dpiSel, s.dpi.presets[state.dpiSel] + d);
+}
+function onDpiType(v) {
+  const n = parseInt(String(v).replace(/[^0-9]/g, ""), 10) || 0;
+  $("dpiSlider").value = Math.min(dpiMax(), Math.max(50, n));
+  $("ovDpi").textContent = n;
+}
+function onSlider(v) {
+  $("dpiNum").value = v;
+  $("ovDpi").textContent = v;
+}
+function commitDpi() {
+  if (state.settings == null) return;
+  const n = parseInt($("dpiNum").value.replace(/[^0-9]/g, ""), 10);
+  if (!Number.isNaN(n)) setDpiVal(state.dpiSel, n);
+}
+
+// ---- polling ----------------------------------------------------------------
+
+function renderPoll() {
+  const s = state.settings;
+  const host = $("pollBars");
+  host.innerHTML = "";
+  if (!s) { host.appendChild(el("p", "note", "reading device…")); return; }
+  const rates = state.palettes.rates;
+  const active = s.pollingHz;
+  const n = rates.length;
+  rates.forEach((hz, i) => {
+    const on = hz === active;
+    const col = el("div", "barcol" + (on ? " on" : ""));
+    const bar = el("div", "bar");
+    bar.style.height = `${30 + (i / (n - 1)) * 70}%`;
+    const label = el("div", "barlabel");
+    label.innerHTML = `${hz}Hz${on ? " " + CHECK_SVG : ""}`;
+    col.append(bar, label);
+    col.setAttribute("aria-label", `${hz}Hz${on ? " (active)" : ""}`);
+    kbd(col, () => invoke("set_rate", { hz }), on);
+    host.appendChild(col);
+  });
+}
+
+// ---- sensor -----------------------------------------------------------------
+
+function renderSensor() {
+  const host = $("sensorRows");
+  host.innerHTML = "";
+  if (!state.settings) { host.appendChild(el("p", "note", "reading device…")); return; }
+  const s = state.settings.sensor;
+
+  host.appendChild(segRow("Lift-off distance", [["0.7 mm", 3], ["1.0 mm", 1], ["2.0 mm", 2]], s.lod,
+    (v) => invoke("set_lod", { value: v })));
+  host.appendChild(segRow("Scroll direction", [["normal", false], ["inverted", true]], s.scrollInverted,
+    (v) => invoke("set_scroll", { inverted: v })));
+  host.appendChild(segRow("Motion sync", [["off", false], ["on", true]], s.motion,
+    (v) => invoke("set_motion", { on: v })));
+  host.appendChild(segRow("Sampling mode", [["Standard", false], ["Competitive", true]], s.fps20k,
+    (v) => invoke("set_fps20k", { on: v })));
+
+  // angle: off/on segment + (when on) a degree input
+  const enabled = s.angle !== 0;
+  const deg = Math.abs(s.angle) || 5;
+  const row = el("div", "srow");
+  row.appendChild(el("div", "slabel", "Angle snapping"));
+  const right = el("div", "inline-set");
+  const seg = el("div", "seg");
+  const off = el("button", enabled ? "" : "on", "off");
+  const on = el("button", enabled ? "on" : "", "on");
+  off.onclick = () => invoke("set_angle", { degrees: 0, enable: false });
+  on.onclick = () => invoke("set_angle", { degrees: deg, enable: true });
+  seg.append(off, on);
+  right.appendChild(seg);
+  if (enabled) {
+    const input = el("input");
+    input.type = "number"; input.min = 1; input.max = 90; input.value = deg;
+    input.setAttribute("aria-label", "Angle degrees");
+    input.style.maxWidth = "90px";
+    const apply = btnSquare("set °", () => {
+      const d = Math.min(90, Math.max(1, Math.round(+input.value)));
+      invoke("set_angle", { degrees: d, enable: true });
+    });
+    input.onkeydown = (e) => { if (e.key === "Enter") apply.click(); };
+    right.append(input, el("span", null, "°"), apply);
+  }
+  row.appendChild(right);
+  host.appendChild(row);
+
+  host.appendChild(numRow("Debounce (ms)", state.settings.debounce, (v) => invoke("set_debounce", { ms: v })));
+  host.appendChild(numRow("Sleep (min)", state.settings.sleepMin, (v) => invoke("set_sleep", { minutes: v })));
+}
+
+function segRow(label, opts, current, on) {
+  const row = el("div", "srow");
+  row.appendChild(el("div", "slabel", label));
+  const wrap = el("div");
+  const seg = el("div", "seg");
+  for (const [name, val] of opts) {
+    const b = el("button", val === current ? "on" : "", name);
+    b.onclick = () => on(val);
+    seg.appendChild(b);
+  }
+  wrap.appendChild(seg);
+  row.appendChild(wrap);
+  return row;
+}
+
+function numRow(label, value, on) {
+  const row = el("div", "srow");
+  row.appendChild(el("div", "slabel", label));
+  const set = el("div", "inline-set");
+  const input = el("input");
+  input.type = "number"; input.value = value;
+  input.setAttribute("aria-label", label);
+  const apply = btnSquare("set", () => on(Math.round(+input.value)));
+  input.onkeydown = (e) => { if (e.key === "Enter") apply.click(); };
+  set.append(input, apply);
+  row.appendChild(set);
+  return row;
+}
+
+function btnSquare(label, fn) {
+  const b = el("button", "btn btn-primary btn-square");
+  b.appendChild(el("span", null, label));
+  b.onclick = fn;
+  return b;
+}
+
+// ---- buttons ----------------------------------------------------------------
+
+function renderButtons() {
+  const lock = $("lockToggle");
+  lock.classList.toggle("on", state.leftLock);
+  lock.setAttribute("aria-checked", state.leftLock ? "true" : "false");
+
+  const host = $("btnRows");
+  host.innerHTML = "";
+  if (!state.buttons.length) {
+    const tr = el("tr");
+    const td = el("td", "note", "loading buttons…");
+    td.colSpan = 5;
+    tr.appendChild(td);
+    host.appendChild(tr);
+    return;
+  }
+  for (const b of state.buttons) {
+    const locked = b.id === 0 && state.leftLock; // left button protected
+    const tr = el("tr", (b.present ? "" : "empty") + (locked ? " locked" : ""));
+    const badge = el("span", "badge " + (b.typeId === 3 ? "red" : "out"), b.typeName);
+    const badgeTd = el("td"); badgeTd.appendChild(badge);
+    const go = el("td"); go.style.textAlign = "center";
+    if (locked) { const s = el("span", "lk"); s.innerHTML = LOCK_SVG; go.appendChild(s); }
+    else if (b.present) go.appendChild(el("span", "go", "›"));
+    tr.append(
+      el("td", null, String(b.id)),
+      el("td", null, b.friendly || ""),
+      badgeTd,
+      el("td", null, b.label),
+      go,
+    );
+    if (b.present && !locked) {
+      tr.setAttribute("aria-label", `Remap ${b.friendly || "button " + b.id}`);
+      kbd(tr, () => openRemap(b));
+    } else if (locked) {
+      tr.title = "left click lock is on";
+    }
+    host.appendChild(tr);
+  }
+}
+
+function toggleLock() {
+  state.leftLock = !state.leftLock;
+  renderButtons();
+}
+
+// ---- profiles ---------------------------------------------------------------
+
+function renderProfiles() {
+  const s = state.settings;
+  const host = $("profileList");
+  host.innerHTML = "";
+  if (!s) { host.appendChild(el("p", "note", "reading device…")); return; }
+  for (let i = 0; i < s.profile.count; i++) {
+    const on = i === s.profile.current;
+    const row = el("div", "list-row link card" + (on ? " sel" : ""));
+    row.setAttribute("role", "option");
+    row.setAttribute("aria-selected", on ? "true" : "false");
+    row.tabIndex = 0;
+    if (!on) row.style.boxShadow = "4px 4px 0 var(--shadow)";
+    row.appendChild(el("span", on ? "dot" : "dot dead"));
+    row.appendChild(el("span", null, `Profile ${i + 1}`));
+    if (on) {
+      const tag = el("span", null, "active");
+      tag.style.cssText = "margin-left:8px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);font-weight:900";
+      row.appendChild(tag);
+    }
+    const pick = () => invoke("set_profile", { index: i });
+    row.onclick = pick;
+    row.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
+    host.appendChild(row);
+  }
+}
+
+// ---- button remap modal -----------------------------------------------------
+
+let remapBtn = null;
+let remapKind = "mouse";
+let remapAction = null;
+
+function openRemap(b) {
+  remapBtn = b;
+  remapKind = "mouse";
+  remapAction = null;
+  $("remapTitle").textContent = `Assign button ${b.id}${b.friendly ? " · " + b.friendly : ""}`;
+  pickType("mouse");
+  $("remapModal").showModal();
+}
+
+function pickType(kind) {
+  remapKind = kind;
+  remapAction = null;
+  document.querySelectorAll("#remapType button").forEach((b) => b.classList.toggle("on", b.dataset.t === kind));
+  const isList = kind === "mouse" || kind === "media";
+  $("remapAssignLabel").textContent = isList ? "Action" : kind === "disable" ? "Disabled" : "Default";
+  const opts = $("remapOpts");
+  opts.className = isList ? "opts" : "";
+  opts.innerHTML = "";
+  if (isList) {
+    for (const name of state.palettes[kind]) {
+      const o = el("div", "opt", pretty(name));
+      kbd(o, () => { remapAction = name; opts.querySelectorAll(".opt").forEach((x) => x.classList.toggle("sel", x === o)); });
+      opts.appendChild(o);
+    }
+  } else {
+    opts.appendChild(el("div", "pick-hint",
+      kind === "disable" ? "This button will do nothing." : "Restore the button's hardware default function."));
+  }
+}
+
+function closeRemap() { $("remapModal").close(); }
+
+function saveRemap() {
+  const b = remapBtn;
+  if (!b) return;
+  if (remapKind === "mouse" && remapAction) invoke("set_button_mouse", { id: b.id, action: remapAction });
+  else if (remapKind === "media" && remapAction) invoke("set_button_media", { id: b.id, action: remapAction });
+  else if (remapKind === "disable") invoke("set_button_disable", { id: b.id });
+  else if (remapKind === "default") invoke("set_button_default", { id: b.id });
+  else return; // mouse/media chosen but no action picked yet
+  closeRemap();
+}
+
+// ---- theme + shortcuts ------------------------------------------------------
+
+function applySavedTheme() {
+  const t = localStorage.getItem("sq-theme") || "dark";
+  document.documentElement.setAttribute("data-theme", t);
+  syncThemeSwitch();
+}
+function syncThemeSwitch() {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  $("thDark").classList.toggle("act", dark);
+  $("thLight").classList.toggle("act", !dark);
+}
+function toggleTheme() {
+  fdTheme();
+  localStorage.setItem("sq-theme", document.documentElement.getAttribute("data-theme"));
+  syncThemeSwitch();
+}
+
+function doRefresh() { invoke("read_all"); invoke("read_buttons"); }
+function checkFw() { invoke("check_update"); }
+function openHelp() { $("helpModal").showModal(); }
+function quit() { window.__TAURI__.window.getCurrentWindow().close(); }
 
 function onKey(e) {
-  if (e.target.tagName === "INPUT") return; // don't hijack typing in fields
-  const scrim = document.querySelector(".scrim");
-  if (e.key === "Escape") { if (scrim) scrim.remove(); return; }
-  if (scrim) return; // modal owns the keyboard
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  if (document.querySelector("dialog[open]")) return; // dialog owns the keyboard (Esc closes natively)
+  const i = NAV.findIndex((x) => x[0] === state.screen);
   switch (e.key) {
-    case "ArrowDown": case "j": moveSection(1); break;
-    case "ArrowUp": case "k": moveSection(-1); break;
-    case "r": invoke("read_all"); invoke("read_buttons"); break;
-    case "t": openThemePicker(); break;
-    case "u": invoke("check_update"); break;
+    case "ArrowDown": case "j": goto(NAV[(i + 1) % NAV.length][0]); break;
+    case "ArrowUp": case "k": goto(NAV[(i - 1 + NAV.length) % NAV.length][0]); break;
+    case "r": doRefresh(); break;
+    case "t": toggleTheme(); break;
+    case "u": checkFw(); break;
     case "?": openHelp(); break;
     case "q": quit(); break;
     default: return;
@@ -201,407 +502,12 @@ function onKey(e) {
   e.preventDefault();
 }
 
-function paintStatus() {
-  const b = state.settings?.battery;
-  if (!b) return;
-  const segs = 10;
-  const filled = Math.round((b.percent / 100) * segs);
-  $("batt-gauge").innerHTML =
-    `<span class="batt-on">${"▰".repeat(filled)}</span>` +
-    `<span class="batt-off">${"▰".repeat(segs - filled)}</span>`;
-  $("batt").textContent = `${b.percent}%${b.charging ? " ⚡" : ""}`;
-}
-
-// ---- shell -----------------------------------------------------------------
-
-function buildRail() {
-  const rail = $("rail");
-  rail.innerHTML = "";
-  for (const [id, ic, name] of SCREENS) {
-    const n = el("div", "nav" + (id === state.screen ? " active" : ""));
-    n.append(el("span", "ic", ic), el("span", null, name));
-    n.onclick = () => { state.screen = id; buildRail(); render(); };
-    rail.appendChild(n);
-  }
-}
-
-function render() {
-  const s = state.settings;
-  const m = $("screen");
-  m.innerHTML = "";
-  m.appendChild(el("h1", "screen-title", SCREENS.find((x) => x[0] === state.screen)[2]));
-  if (!s && state.screen !== "buttons") {
-    m.appendChild(el("p", "sub", "reading device…"));
-    return;
-  }
-  ({ overview, dpi, polling, sensor, buttons, profiles })[state.screen](m);
-}
-
-// ---- screens ---------------------------------------------------------------
-
-function card(title, ic) {
-  const c = el("section", "card");
-  const t = el("div", "t");
-  t.append(el("span", "ic", ic), document.createTextNode(" " + title));
-  c.appendChild(t);
-  return c;
-}
-
-function goto(screen) {
-  state.screen = screen;
-  buildRail();
-  render();
-}
-
-function overview(m) {
-  const s = state.settings;
-  const grid = el("div", "grid");
-
-  const d = card("DPI", "⊙");
-  const big = el("div", "big");
-  big.append(el("span", null, String(s.dpi.presets[s.dpi.active] ?? "—")), el("span", "unit", " active"));
-  d.appendChild(big);
-  const pills = el("div", "pills");
-  s.dpi.presets.forEach((v, i) => pills.appendChild(el("span", "pill" + (i === s.dpi.active ? " on" : ""), v)));
-  d.appendChild(pills);
-
-  const p = card("Polling rate", "⟳");
-  const pb = el("div", "big");
-  pb.append(el("span", null, String(s.pollingHz || "—")), el("span", "unit", " Hz"));
-  p.append(pb, el("div", "sub", "125 · 500 · 1000 · 2000 · 4000 · 8000"));
-
-  const se = card("Sensor", "◎");
-  se.append(
-    kvLine("LOD", LOD[s.sensor.lod] ?? "?"),
-    kvLine("scroll", s.sensor.scrollInverted ? "inverted" : "normal"),
-    kvLine("motion", s.sensor.motion ? "● on" : "○ off", s.sensor.motion ? "on" : "off"),
-    kvLine("angle", s.sensor.angle === 0 ? "off" : `${s.sensor.angle}°`),
-  );
-
-  const t = card("Timing & power", "⌁");
-  t.append(kvLine("debounce", `${s.debounce} ms`), kvLine("sleep", `${s.sleepMin} min`));
-
-  // Overview cards are shortcuts to their editable screen.
-  for (const [c, screen] of [[d, "dpi"], [p, "polling"], [se, "sensor"], [t, "sensor"]]) {
-    c.classList.add("link");
-    c.onclick = () => goto(screen);
-  }
-
-  grid.append(d, p, se, t);
-  m.appendChild(grid);
-}
-
-function kvLine(k, v, cls) {
-  const r = el("div", "kv");
-  r.append(el("span", "k", k), el("span", "v" + (cls ? " " + cls : ""), v));
-  return r;
-}
-
-function setDpiVal(i, v) {
-  const max = state.settings.dpi.max || 26000;
-  const val = Math.min(max, Math.max(50, Math.round(v / 50) * 50));
-  invoke("set_dpi", { index: i, value: val });
-}
-
-function dpi(m) {
-  const s = state.settings;
-  const max = s.dpi.max || 26000;
-  if (state.dpiSel == null || state.dpiSel >= s.dpi.presets.length) state.dpiSel = s.dpi.active;
-  const sel = state.dpiSel;
-  const val = s.dpi.presets[sel];
-
-  const layout = el("div", "dpi-layout");
-
-  // left: preset list (click = activate + select for editing)
-  const list = el("div", "dpi-list");
-  list.appendChild(el("div", "dpi-levels", `Levels: ${s.dpi.count}`));
-  s.dpi.presets.forEach((v, i) => {
-    const row = el("div", "dpi-row" + (i === sel ? " sel" : "") + (i === s.dpi.active ? " active" : ""));
-    const dot = el("span", "dpi-dot");
-    dot.style.background = DPI_DOTS[i % DPI_DOTS.length];
-    row.append(dot, el("span", "dpi-val", v));
-    if (i === s.dpi.active) row.append(el("span", "dpi-tag", "active"));
-    row.onclick = () => { state.dpiSel = i; if (i !== s.dpi.active) invoke("set_active_dpi", { index: i }); render(); };
-    list.appendChild(row);
-  });
-
-  // right: value stepper + gradient slider
-  const ed = el("div", "dpi-editor");
-  ed.append(
-    el("h2", "ed-title", "DPI Settings"),
-    el("p", "sub", "DPI sets cursor sensitivity — higher moves the cursor farther for the same hand movement."),
-  );
-  const stepper = el("div", "dpi-stepper");
-  const minus = el("button", "step", "−");
-  const num = el("input", "dpi-num");
-  num.type = "text";
-  num.inputMode = "numeric";
-  num.value = String(val);
-  num.title = "click to type a value";
-  const plus = el("button", "step", "+");
-  minus.onclick = () => setDpiVal(sel, val - 50);
-  plus.onclick = () => setDpiVal(sel, val + 50);
-  const commit = () => { const n = parseInt(num.value, 10); if (!Number.isNaN(n)) setDpiVal(sel, n); };
-  num.onchange = commit;
-  num.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); num.blur(); } };
-  num.onfocus = () => num.select();
-  stepper.append(minus, num, plus);
-
-  const slider = el("input");
-  slider.type = "range"; slider.min = 50; slider.max = max; slider.step = 50; slider.value = val;
-  slider.className = "dpi-slider";
-  slider.oninput = () => { num.value = slider.value; };
-  slider.onchange = () => setDpiVal(sel, +slider.value);
-
-  const ticks = el("div", "dpi-ticks");
-  // Position each tick at the thumb's true travel (track inset by half the
-  // 10px thumb), centered — so labels line up with the handle.
-  const tickVals = [50, 6500, 13000, 19500, max];
-  tickVals.forEach((t, i) => {
-    const sp = el("span", null, String(t));
-    const frac = (t - 50) / (max - 50);
-    sp.style.left = `calc(5px + ${frac} * (100% - 10px))`;
-    sp.style.transform = i === 0 ? "translateX(0)" : i === tickVals.length - 1 ? "translateX(-100%)" : "translateX(-50%)";
-    ticks.appendChild(sp);
-  });
-
-  ed.append(stepper, slider, ticks);
-  layout.append(list, ed);
-  m.appendChild(layout);
-}
-
-function polling(m) {
-  const s = state.settings;
-  const rates = state.palettes.rates;
-  const active = s.pollingHz;
-  const n = rates.length;
-
-  const chart = el("div", "poll-chart");
-  rates.forEach((hz, i) => {
-    const on = hz === active;
-    const col = el("div", "poll-col" + (on ? " active" : ""));
-    const bar = el("div", "poll-bar");
-    bar.style.height = `${22 + (i / (n - 1)) * 78}%`;
-    if (on) {
-      bar.style.background = "linear-gradient(180deg, var(--accent), #74a0f0)";
-    } else {
-      // Office (blue) → Gaming (red) ramp via purple, muted for inactive bars.
-      const hue = 220 + (i / (n - 1)) * 140; // 220→360 (blue→purple→red)
-      bar.style.background = `linear-gradient(180deg, hsl(${hue} 40% 36%), hsl(${hue} 40% 26%))`;
-    }
-    col.append(bar, el("div", "poll-hz", `${hz}Hz${on ? " ✓" : ""}`));
-    col.onclick = () => invoke("set_rate", { hz });
-    chart.appendChild(col);
-  });
-  m.appendChild(chart);
-
-  const ends = el("div", "poll-ends");
-  ends.append(el("span", null, "Office"), el("span", null, "Gaming"));
-  m.appendChild(ends);
-}
-
-function sensor(m) {
-  const s = state.settings.sensor;
-  m.appendChild(segRow("Lift-off distance", [["0.7 mm", 3], ["1.0 mm", 1], ["2.0 mm", 2]], s.lod,
-    (v) => invoke("set_lod", { value: v })));
-  m.appendChild(segRow("Scroll direction", [["normal", false], ["inverted", true]], s.scrollInverted,
-    (v) => invoke("set_scroll", { inverted: v })));
-  m.appendChild(segRow("Motion sync", [["off", false], ["on", true]], s.motion,
-    (v) => invoke("set_motion", { on: v })));
-  m.appendChild(segRow("Sampling mode", [["Standard", false], ["Competitive", true]], s.fps20k,
-    (v) => invoke("set_fps20k", { on: v })));
-
-  // angle: enable toggle + (when on) a degree input
-  const enabled = s.angle !== 0;
-  const deg = Math.abs(s.angle) || 5;
-  const arow = el("div", "row");
-  arow.appendChild(el("span", "label", "Angle snapping"));
-  const seg = el("div", "seg");
-  const off = el("button", enabled ? "" : "on", "off");
-  const on = el("button", enabled ? "on" : "", "on");
-  off.onclick = () => invoke("set_angle", { degrees: 0, enable: false });
-  on.onclick = () => invoke("set_angle", { degrees: deg, enable: true });
-  seg.append(off, on);
-  arow.appendChild(seg);
-  if (enabled) {
-    const input = el("input");
-    input.type = "number"; input.min = 1; input.max = 90; input.value = deg;
-    input.style.width = "72px";
-    const apply = el("button", "btn primary", "set °");
-    const commit = () => {
-      const d = Math.min(90, Math.max(1, Math.round(+input.value)));
-      invoke("set_angle", { degrees: d, enable: true });
-    };
-    apply.onclick = commit;
-    input.onkeydown = (e) => { if (e.key === "Enter") commit(); };
-    arow.append(input, el("span", "v", "°"), apply);
-  }
-  m.appendChild(arow);
-
-  m.appendChild(numRow("Debounce (ms)", state.settings.debounce, 0, 30,
-    (v) => invoke("set_debounce", { ms: v })));
-  m.appendChild(numRow("Sleep (min)", state.settings.sleepMin, 1, 240,
-    (v) => invoke("set_sleep", { minutes: v })));
-}
-
-function segRow(label, opts, current, on) {
-  const row = el("div", "row");
-  row.appendChild(el("span", "label", label));
-  const seg = el("div", "seg");
-  for (const [name, val] of opts) {
-    const b = el("button", val === current ? "on" : "", name);
-    b.onclick = () => on(val);
-    seg.appendChild(b);
-  }
-  row.appendChild(seg);
-  return row;
-}
-
-function numRow(label, value, min, max, on) {
-  const row = el("div", "row");
-  row.appendChild(el("span", "label", label));
-  const input = el("input");
-  input.type = "number"; input.min = min; input.max = max; input.value = value;
-  const apply = el("button", "btn primary", "set");
-  apply.onclick = () => on(Math.round(+input.value));
-  row.append(input, apply);
-  return row;
-}
-
-function buttons(m) {
-  m.appendChild(lockBar());
-  if (!state.buttons.length) { m.appendChild(el("p", "sub", "loading buttons…")); return; }
-  const table = el("table");
-  const head = el("tr");
-  ["id", "button", "type", "assignment", ""].forEach((h) => head.appendChild(el("th", null, h)));
-  table.appendChild(head);
-  for (const b of state.buttons) {
-    const locked = b.id === 0 && state.leftLock; // left button protected
-    const tr = el("tr", "btn-row" + (b.present ? "" : " empty") + (locked ? " locked" : ""));
-    tr.append(
-      el("td", null, String(b.id)),
-      el("td", null, b.friendly || ""),
-      tagCell(b.typeName, b.typeId),
-      el("td", null, b.label),
-      el("td", null, locked ? "🔒" : b.present ? "›" : ""),
-    );
-    if (b.present && !locked) tr.onclick = () => openPicker(b);
-    table.appendChild(tr);
-  }
-  m.appendChild(table);
-}
-
-// UI-side guard (matches the Launcher): while on, the left button can't be remapped.
-function lockBar() {
-  const bar = el("div", "lock-bar");
-  const txt = el("div");
-  txt.append(el("div", "lock-title", "Left Click Lock"),
-    el("div", "sub", "While on, the left button cannot be remapped."));
-  const sw = el("label", "switch");
-  const u = el("span", "sw-lbl" + (state.leftLock ? "" : " on"), "Unlock");
-  const track = el("span", "track" + (state.leftLock ? " on" : ""));
-  track.appendChild(el("span", "knob"));
-  const l = el("span", "sw-lbl" + (state.leftLock ? " on" : ""), "Lock");
-  sw.append(u, track, l);
-  sw.onclick = () => { state.leftLock = !state.leftLock; render(); };
-  bar.append(txt, sw);
-  return bar;
-}
-
-function tagCell(name, typeId) {
-  const td = el("td");
-  td.appendChild(el("span", "tag" + (typeId === 3 ? " media" : ""), name));
-  return td;
-}
-
-function profiles(m) {
-  const s = state.settings;
-  const list = el("div", "plist");
-  for (let i = 0; i < s.profile.count; i++) {
-    const active = i === s.profile.current;
-    const p = el("div", "prof" + (active ? " active" : ""));
-    p.append(el("span", "dot", active ? "●" : "○"), el("span", null, `Profile ${i + 1}`));
-    if (active) p.appendChild(el("span", "sub", "  active"));
-    p.onclick = () => invoke("set_profile", { index: i });
-    list.appendChild(p);
-  }
-  m.appendChild(list);
-  m.appendChild(el("p", "sub", "switching reloads the whole config from the new profile"));
-}
-
-// ---- button picker modal ---------------------------------------------------
-
-const ACTION_LABELS = {
-  leftDouble: "Double-click",
-  upScroll: "Scroll ↑", downScroll: "Scroll ↓",
-  leftScroll: "Scroll ←", rightScroll: "Scroll →",
-};
-function pretty(n) {
-  return ACTION_LABELS[n] || n.charAt(0).toUpperCase() + n.slice(1);
-}
-
-function openPicker(b) {
-  let kind = "mouse";
-  let action = null;
-  const scrim = el("div", "scrim");
-  const modal = el("div", "modal picker");
-  modal.appendChild(el("h3", null, `Assign button ${b.id}${b.friendly ? " · " + b.friendly : ""}`));
-
-  modal.appendChild(el("div", "picker-label", "Type"));
-  const kindSeg = el("div", "seg kind");
-  const actionLabel = el("div", "picker-label", "Action");
-  const opts = el("div", "opts");
-  const renderOpts = () => {
-    const list = kind === "mouse" || kind === "media";
-    actionLabel.textContent = list ? "Action" : kind === "disable" ? "Disabled" : "Default";
-    opts.className = list ? "opts" : "opts hint";
-    opts.innerHTML = "";
-    if (list) {
-      for (const name of state.palettes[kind]) {
-        const o = el("div", "opt" + (name === action ? " sel" : ""), pretty(name));
-        o.onclick = () => { action = name; renderOpts(); };
-        opts.appendChild(o);
-      }
-    } else {
-      opts.appendChild(el("div", "pick-hint",
-        kind === "disable" ? "This button will do nothing." : "Restore the button's hardware default function."));
-    }
-  };
-  for (const k of ["mouse", "media", "disable", "default"]) {
-    const kb = el("button", k === kind ? "on" : "", pretty(k));
-    kb.onclick = () => { kind = k; action = null; [...kindSeg.children].forEach((c) => c.classList.toggle("on", c === kb)); renderOpts(); };
-    kindSeg.appendChild(kb);
-  }
-  modal.append(kindSeg, actionLabel, opts);
-  renderOpts();
-
-  const actions = el("div", "actions");
-  const cancel = el("button", "btn", "cancel");
-  cancel.onclick = () => scrim.remove();
-  const apply = el("button", "btn primary", "assign");
-  apply.onclick = () => {
-    if (kind === "mouse" && action) invoke("set_button_mouse", { id: b.id, action });
-    else if (kind === "media" && action) invoke("set_button_media", { id: b.id, action });
-    else if (kind === "disable") invoke("set_button_disable", { id: b.id });
-    else if (kind === "default") invoke("set_button_default", { id: b.id });
-    else return;
-    scrim.remove();
-  };
-  actions.append(cancel, apply);
-  modal.appendChild(actions);
-  scrim.appendChild(modal);
-  scrim.onclick = (e) => { if (e.target === scrim) scrim.remove(); };
-  document.body.appendChild(scrim);
-}
-
-// ---- toast -----------------------------------------------------------------
+// ---- toast ------------------------------------------------------------------
 
 // Map a raw backend error to a plain, actionable reason.
 function friendlyError(raw) {
   const m = String(raw).toLowerCase();
   if (m.includes("no such device") || m.includes("os error 19")) return "Mouse disconnected.";
-  // Connect failure (covers a transient EACCES as a node vanishes) → no device,
-  // not a udev problem. Checked before the permission branch on purpose.
   if (m.includes("not found") || m.includes("no responding"))
     return "No mouse found — connect the cable or dongle (and unplug the unused one).";
   if (m.includes("permission") || m.includes("eacces") || m.includes("os error 13"))
@@ -613,19 +519,20 @@ function friendlyError(raw) {
 }
 
 function toast(msg, kind) {
-  const t = el("div", "t " + (kind || ""), msg);
-  $("toast").appendChild(t);
-  setTimeout(() => t.remove(), 3200);
+  fdToast(msg, kind === "err" ? { type: "err" } : {});
 }
 
-// ---- boot ------------------------------------------------------------------
+// ---- boot -------------------------------------------------------------------
 
 async function boot() {
+  applySavedTheme();
+  fdAccent("accpick", ACCENTS);
   await wireEvents();
-  buildRail();
-  buildKeys();
-  render();
+  buildNav($("sideNav"));
+  buildNav($("sideNavMobile"));
+  document.querySelectorAll("[data-goto]").forEach((c) => { c.onclick = () => goto(c.dataset.goto); });
   document.addEventListener("keydown", onKey);
+  renderAll();
   state.palettes = await invoke("palettes");
   await invoke("read_all");
   await invoke("read_buttons");
