@@ -3,7 +3,7 @@
 //! Event = [flag, code, delay_lo, delay_hi], flag = press(0x80) | class.
 
 use crate::hid::{Hid, HidError};
-use crate::proto::buttons::{ButtonInfo, get_button};
+use crate::proto::buttons::{ButtonInfo, check_id, get_button};
 
 const CMD_SET_MACRO: u8 = 0x54;
 const CMD_CHUNK: u8 = 0x71;
@@ -12,6 +12,13 @@ const CHUNK_ACK: u8 = 0x72;
 const MAX_FRAME: usize = 63;
 /// Bytes of the 0x54 stream per chunk (3-byte 0x71 header + 59 = 62).
 const CHUNK_PAYLOAD: usize = 59;
+
+/// Protocol ceiling on macro events: the frame's `len` byte holds `6 + 4*n`,
+/// so `n` cannot exceed `(255 - 6) / 4`.
+pub const MAX_EVENTS: usize = 62;
+/// Press+release per entry, so text chars and clicks each cost two events.
+pub const MAX_TEXT_CHARS: usize = MAX_EVENTS / 2;
+pub const MAX_CLICKS: usize = MAX_EVENTS / 2;
 
 const CLASS_KEY: u8 = 1;
 const CLASS_MOUSE: u8 = 8;
@@ -72,11 +79,15 @@ pub fn text_events(text: &str) -> Result<Vec<u8>, HidError> {
 
 /// The 0x54 frame: `[0x54, id, 0, len, 0, loopCount, loopType, 0x20, 0, 0,
 /// n_events, 0, <events>]`, `len = 6 + 4*n_events`.
+/// Caller must reject `events` longer than `MAX_EVENTS * 4` first — past that
+/// the `len` and `n_events` bytes cannot represent the frame.
 fn build_frame(id: u8, events: &[u8], loop_count: u8, loop_type: u8) -> Vec<u8> {
-    let n = (events.len() / 4) as u8;
-    let length = 6 + 4 * n;
+    let n = events.len() / 4;
+    debug_assert!(n <= MAX_EVENTS, "build_frame called with {n} events");
+    let length = (6 + 4 * n) as u8;
     let mut f = vec![
-        CMD_SET_MACRO, id, 0x00, length, 0x00, loop_count, loop_type, 0x20, 0x00, 0x00, n, 0x00,
+        CMD_SET_MACRO, id, 0x00, length, 0x00, loop_count, loop_type, 0x20, 0x00, 0x00,
+        n as u8, 0x00,
     ];
     f.extend_from_slice(events);
     f
@@ -85,6 +96,13 @@ fn build_frame(id: u8, events: &[u8], loop_count: u8, loop_type: u8) -> Vec<u8> 
 /// Upload `events` to `button_id` (binds the button to the macro). Re-reads to
 /// confirm. Long frames are chunked via 0x71 (`seq = 1 + bytes_sent/16`).
 pub fn set_macro(dev: &mut dyn Hid, button_id: u8, events: &[u8]) -> Result<ButtonInfo, HidError> {
+    check_id(button_id)?;
+    let n = events.len() / 4;
+    if n > MAX_EVENTS {
+        return Err(HidError::BadReply(format!(
+            "macro too long: {n} events exceeds the {MAX_EVENTS}-event frame limit"
+        )));
+    }
     let frame = build_frame(button_id, events, 1, LOOP_STOP_ON_RELEASE);
     let length = frame[3];
 

@@ -142,7 +142,19 @@ pub fn get_all(dev: &mut dyn Hid, count: usize) -> Result<Vec<ButtonInfo>, HidEr
     (0..count as u8).map(|id| get_button(dev, id)).collect()
 }
 
+/// Reject ids outside the device's button table. Every write path calls this
+/// before a frame reaches the wire — firmware behaviour past `COUNT` is undefined.
+pub fn check_id(id: u8) -> Result<(), HidError> {
+    if id as usize >= COUNT {
+        return Err(HidError::BadReply(format!(
+            "button id {id} out of range 0..{COUNT}"
+        )));
+    }
+    Ok(())
+}
+
 pub fn set_button(dev: &mut dyn Hid, id: u8, type_id: u8, data: u32) -> Result<ButtonInfo, HidError> {
+    check_id(id)?;
     let d = be24(data);
     let (ok, resp) = dev.long_set(CMD_SET_BUTTON, &[id, 0, type_id, d[0], d[1], d[2]])?;
     if !ok {
@@ -183,6 +195,7 @@ pub fn disable(dev: &mut dyn Hid, id: u8) -> Result<ButtonInfo, HidError> {
 
 /// Restore a button's default hardware function (type 0).
 pub fn restore_default(dev: &mut dyn Hid, id: u8) -> Result<ButtonInfo, HidError> {
+    check_id(id)?;
     let (ok, resp) = dev.long_set(CMD_SET_BUTTON, &[id, 0, 0, 0, 0, 0])?;
     if !ok {
         return Err(HidError::BadReply(format!("restore rejected: {resp:02x?}")));

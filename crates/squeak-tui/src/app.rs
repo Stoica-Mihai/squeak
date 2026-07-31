@@ -441,7 +441,9 @@ impl App {
     }
 
     fn macro_add(&mut self) {
-        self.macro_seq.push(MOUSE_PALETTE[self.macro_palette].1);
+        if self.macro_seq.len() < macros::MAX_CLICKS {
+            self.macro_seq.push(MOUSE_PALETTE[self.macro_palette].1);
+        }
     }
 
     fn macro_remove(&mut self) {
@@ -464,7 +466,11 @@ impl App {
                     self.text_buf.push(c);
                 }
             }
-            Some(Modal::MacroText) if !c.is_control() => self.text_buf.push(c),
+            Some(Modal::MacroText) if !c.is_control() => {
+                if self.text_buf.chars().count() < macros::MAX_TEXT_CHARS {
+                    self.text_buf.push(c);
+                }
+            }
             _ => {}
         }
     }
