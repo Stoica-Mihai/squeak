@@ -10,7 +10,7 @@
 <div class="app">
 
   <header class="topbar">
-    <button class="iconbtn menu-btn" id="menuBtn" aria-label="Menu" onclick="fdDrawer('navDrawer','navScrim')">
+    <button class="iconbtn menu-btn" id="menuBtn" aria-label="Menu" data-act="navDrawer">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
     </button>
     <div class="brand">
@@ -26,7 +26,7 @@
         <span class="cells" id="battCells"></span>
         <span class="pct" id="battPct"></span>
       </div>
-      <button class="switch" id="themeSwitch" onclick="toggleTheme()" aria-label="Theme">
+      <button class="switch" id="themeSwitch" data-act="toggleTheme" aria-label="Theme">
         <span id="thLight">LIGHT</span><span id="thDark" class="act">DARK</span>
       </button>
       <div class="accpick" id="accpick">
@@ -96,12 +96,12 @@
             <h3>DPI Settings</h3>
             <p>DPI sets cursor sensitivity — higher moves the cursor farther for the same hand movement.</p>
             <div class="stepper big">
-              <button onclick="stepDpi(-50)" aria-label="Decrease DPI">−</button>
-              <input class="num" id="dpiNum" type="text" inputmode="numeric" aria-label="DPI value" value="" oninput="onDpiType(this.value)" onchange="commitDpi()" onkeydown="if(event.key==='Enter'){event.preventDefault();commitDpi();this.blur()}">
-              <button onclick="stepDpi(50)" aria-label="Increase DPI">+</button>
+              <button data-act="dpiDown" aria-label="Decrease DPI">−</button>
+              <input class="num" id="dpiNum" type="text" inputmode="numeric" aria-label="DPI value" value="">
+              <button data-act="dpiUp" aria-label="Increase DPI">+</button>
             </div>
             <div class="slider-wrap">
-              <input type="range" class="dpi" id="dpiSlider" min="50" max="26000" step="50" value="50" oninput="onSlider(this.value)" onchange="commitDpi()">
+              <input type="range" class="dpi" id="dpiSlider" min="50" max="26000" step="50" value="50">
               <div class="ticks" id="dpiTicks"></div>
             </div>
           </div>
@@ -131,7 +131,7 @@
           </div>
           <div class="lockctl">
             <span>Unlock</span>
-            <button class="toggle on" id="lockToggle" onclick="toggleLock()" aria-label="Left click lock"><i></i></button>
+            <button class="toggle on" id="lockToggle" data-act="toggleLock" aria-label="Left click lock"><i></i></button>
             <span>Lock</span>
           </div>
         </div>
@@ -152,14 +152,14 @@
 
   <footer class="keybar">
     <span class="kb"><span class="keycap">↑↓</span> section</span>
-    <span class="kb"><span class="keycap" onclick="doRefresh()">r</span> refresh</span>
-    <span class="kb"><span class="keycap" onclick="checkFw()">u</span> check fw</span>
-    <span class="kb"><span class="keycap" onclick="openHelp()">?</span> help</span>
-    <span class="kb"><span class="keycap" onclick="quit()">q</span> quit</span>
+    <span class="kb"><span class="keycap" data-act="refresh">r</span> refresh</span>
+    <span class="kb"><span class="keycap" data-act="checkFw">u</span> check fw</span>
+    <span class="kb"><span class="keycap" data-act="openHelp">?</span> help</span>
+    <span class="kb"><span class="keycap" data-act="quit">q</span> quit</span>
   </footer>
 </div>
 
-<div class="scrim-bg" id="navScrim" onclick="fdDrawer('navDrawer','navScrim')"></div>
+<div class="scrim-bg" id="navScrim" data-act="navDrawer"></div>
 <nav class="drawer" id="navDrawer" aria-label="Sections"><div class="nav-v" id="sideNavMobile" style="padding:14px 0"></div></nav>
 
 <dialog id="remapModal">
@@ -169,10 +169,10 @@
       <div style="margin-bottom:14px">
         <label>Type</label>
         <div class="seg" id="remapType">
-          <button data-t="mouse" onclick="pickType('mouse')">Mouse</button>
-          <button data-t="media" onclick="pickType('media')">Media</button>
-          <button data-t="disable" onclick="pickType('disable')">Disable</button>
-          <button data-t="default" onclick="pickType('default')">Default</button>
+          <button data-t="mouse" data-act="pickMouse">Mouse</button>
+          <button data-t="media" data-act="pickMedia">Media</button>
+          <button data-t="disable" data-act="pickDisable">Disable</button>
+          <button data-t="default" data-act="pickDefault">Default</button>
         </div>
       </div>
       <div id="remapAssignWrap">
@@ -181,8 +181,8 @@
       </div>
     </div>
     <div class="mfoot">
-      <button class="btn btn-ghost" onclick="closeRemap()"><span>Cancel</span></button>
-      <div class="grp"><button class="btn btn-primary" id="remapApply" autofocus onclick="saveRemap()"><span>Apply &amp; verify</span></button></div>
+      <button class="btn btn-ghost" data-act="closeRemap"><span>Cancel</span></button>
+      <div class="grp"><button class="btn btn-primary" id="remapApply" autofocus data-act="saveRemap"><span>Apply &amp; verify</span></button></div>
     </div>
   </div>
 </dialog>
@@ -201,151 +201,12 @@
       </div>
       <p style="margin-top:14px">Every edit goes through squeak-core's worker: write + read-back verify. Results show as toasts.</p>
     </div>
-    <div class="mfoot"><span class="k" style="color:var(--muted);font-size:12px">squeak · futurism design</span><div class="grp"><button class="btn btn-ink" autofocus onclick="document.getElementById('helpModal').close()"><span>Close</span></button></div></div>
+    <div class="mfoot"><span class="k" style="color:var(--muted);font-size:12px">squeak · futurism design</span><div class="grp"><button class="btn btn-ink" autofocus data-act="closeHelp"><span>Close</span></button></div></div>
   </div>
 </dialog>
 
-<script>
-/* ===== Futurism Design System JS (vendored from futurism-design 0.6.9) ===== */
-function fdOptValue(o){return o.dataset.value!==undefined?o.dataset.value:o.textContent}
-function fdSelPosition(sel){
-  var list=sel.querySelector('.sel-list'),v=sel.querySelector('.sel-val');
-  if(!list||!v)return;
-  var r=v.getBoundingClientRect();
-  var h=Math.min(list.scrollHeight,240);
-  var below=window.innerHeight-r.bottom,up=below<h+8&&r.top>below;
-  list.style.left=r.left+'px';
-  list.style.width=r.width+'px';
-  list.style.top=(up?r.top-h-4:r.bottom+4)+'px';
-  list.style.transformOrigin=up?'bottom':'top';
-}
-function fdSelOpen(sel,open){
-  if(open)document.querySelectorAll('.sel.open').forEach(function(o){if(o!==sel)fdSelOpen(o,false)});
-  sel.classList.toggle('open',open);
-  var v=sel.querySelector('.sel-val');
-  if(v)v.setAttribute('aria-expanded',open?'true':'false');
-  if(!sel._fdReposition)sel._fdReposition=function(){fdSelPosition(sel)};
-  if(open){
-    fdSelPosition(sel);
-    window.addEventListener('scroll',sel._fdReposition,true);
-    window.addEventListener('resize',sel._fdReposition);
-    var cur=sel.querySelector('.sel-opt.sel-on')||sel.querySelector('.sel-opt');if(cur)cur.focus();
-  }else{
-    window.removeEventListener('scroll',sel._fdReposition,true);
-    window.removeEventListener('resize',sel._fdReposition);
-  }
-}
-function fdSel(opt){
-  var sel=opt.closest('.sel');
-  sel.querySelectorAll('.sel-opt').forEach(function(o){o.classList.remove('sel-on');o.setAttribute('aria-selected','false')});
-  opt.classList.add('sel-on');opt.setAttribute('aria-selected','true');
-  sel.querySelector('.sel-cur').textContent=opt.textContent;
-  sel.dataset.value=fdOptValue(opt);
-  fdSelOpen(sel,false);
-  var v=sel.querySelector('.sel-val');if(v)v.focus();
-}
-function fdSelVal(sel){return sel?(sel.dataset.value||''):''}
-var fdUid=0;
-function fdId(el,prefix){if(!el.id)el.id=prefix+(fdUid++);return el.id}
-function fdInit(root){
-  root=root||document;
-  root.querySelectorAll('.sel').forEach(function(sel){
-    var v=sel.querySelector('.sel-val'),list=sel.querySelector('.sel-list');
-    if(list)list.setAttribute('role','listbox');
-    if(v){v.setAttribute('role','button');v.setAttribute('aria-haspopup','listbox');v.setAttribute('aria-expanded','false');
-      if(list)v.setAttribute('aria-controls',fdId(list,'fd-list-'));if(!v.hasAttribute('tabindex'))v.tabIndex=0}
-    sel.querySelectorAll('.sel-opt').forEach(function(o){o.setAttribute('role','option');o.setAttribute('aria-selected',o.classList.contains('sel-on')?'true':'false');o.tabIndex=-1});
-  });
-  root.querySelectorAll('.toggle').forEach(function(t){
-    if(t.tagName!=='BUTTON'){t.setAttribute('role','switch');if(!t.hasAttribute('tabindex'))t.tabIndex=0}
-    t.setAttribute('aria-checked',t.classList.contains('on')?'true':'false');
-  });
-}
-if(document.readyState!=='loading')fdInit();else document.addEventListener('DOMContentLoaded',function(){fdInit()});
-function fdTheme(root){root=root||document.documentElement;root.setAttribute('data-theme',root.getAttribute('data-theme')==='dark'?'light':'dark')}
-function fdToast(msg,opts){
-  opts=opts||{};
-  var wrap=document.querySelector('.toaster');
-  if(!wrap){wrap=document.createElement('div');wrap.className='toaster';wrap.setAttribute('role','status');wrap.setAttribute('aria-live','polite');document.body.appendChild(wrap)}
-  var t=document.createElement('div');
-  t.className='toast'+(opts.type==='err'?' err':'');
-  t.textContent=msg;
-  wrap.appendChild(t);
-  setTimeout(function(){t.classList.add('out');setTimeout(function(){if(t.parentNode)t.remove()},220)},opts.timeout||3200);
-  return t;
-}
-function fdDrawer(panel,scrim){
-  panel=typeof panel==='string'?document.getElementById(panel):panel;
-  if(!panel)return;
-  var open=panel.classList.toggle('drawer-open');
-  scrim=typeof scrim==='string'?document.getElementById(scrim):scrim;
-  if(scrim)scrim.style.display=open?'block':'none';
-}
-function fdAccent(pick,accents,onChange){
-  pick=typeof pick==='string'?document.getElementById(pick):pick;
-  if(!pick)return;
-  var trig=pick.querySelector('.acctrig'),pop=pick.querySelector('.accpop'),current;
-  var saved=localStorage.getItem('fd-accent')||accents[0].name;
-  function dark(){return document.documentElement.getAttribute('data-theme')==='dark'}
-  function apply(a){
-    current=a;
-    var col=dark()?a.dark:a.light,r=document.documentElement.style;
-    r.setProperty('--accent',col);
-    r.setProperty('--shadow',dark()?col:'#1a1714');
-    localStorage.setItem('fd-accent',a.name);
-    if(trig)trig.style.background=col;
-    render(a);
-    if(onChange)onChange(a);
-  }
-  function render(cur){
-    if(!pop)return;pop.innerHTML='';
-    accents.forEach(function(a){
-      var s=document.createElement('button');
-      var on=a.name===cur.name;
-      s.className='acc'+(on?' on':'');
-      s.style.background=dark()?a.dark:a.light;s.title=a.name;
-      s.setAttribute('aria-label',a.name);s.setAttribute('aria-pressed',on?'true':'false');
-      s.onclick=function(){apply(a);pick.classList.remove('open');if(trig)trig.setAttribute('aria-expanded','false')};
-      pop.appendChild(s);
-    });
-  }
-  if(trig){
-    trig.setAttribute('aria-haspopup','true');trig.setAttribute('aria-expanded','false');
-    trig.onclick=function(){var o=pick.classList.toggle('open');trig.setAttribute('aria-expanded',o?'true':'false')};
-  }
-  apply(accents.find(function(a){return a.name===saved})||accents[0]);
-  if(pick._fdObs)pick._fdObs.disconnect();
-  pick._fdObs=new MutationObserver(function(){if(current)apply(current)});
-  pick._fdObs.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-}
-document.addEventListener('click',function(e){
-  var val=e.target.closest('.sel-val');
-  if(val){var s=val.closest('.sel');fdSelOpen(s,!s.classList.contains('open'))}
-  var op=e.target.closest('.sel-opt');
-  if(op){fdSel(op)}
-  document.querySelectorAll('.sel.open').forEach(function(s){if(!s.contains(e.target))fdSelOpen(s,false)});
-  document.querySelectorAll('.accpick.open').forEach(function(p){if(!p.contains(e.target)){p.classList.remove('open');var t=p.querySelector('.acctrig');if(t)t.setAttribute('aria-expanded','false')}});
-},false);
-document.addEventListener('keydown',function(e){
-  if(!e.target||!e.target.closest)return;
-  var sel=e.target.closest('.sel');
-  if(sel){
-    var opts=Array.prototype.slice.call(sel.querySelectorAll('.sel-opt'));
-    var open=sel.classList.contains('open'),i=opts.indexOf(e.target);
-    if(e.key==='ArrowDown'){e.preventDefault();if(!open)fdSelOpen(sel,true);else if(i<opts.length-1)opts[i+1].focus()}
-    else if(e.key==='ArrowUp'){e.preventDefault();if(i>0)opts[i-1].focus()}
-    else if(e.key==='Enter'||e.key===' '){e.preventDefault();if(!open)fdSelOpen(sel,true);else if(i>-1)fdSel(opts[i])}
-    else if(e.key==='Escape'){if(open){e.preventDefault();fdSelOpen(sel,false);var v=sel.querySelector('.sel-val');if(v)v.focus()}}
-    else if(e.key==='Tab'){if(open)fdSelOpen(sel,false)}
-    return;
-  }
-  if(e.key==='Escape'){
-    document.querySelectorAll('.accpick.open').forEach(function(p){p.classList.remove('open');var t=p.querySelector('.acctrig');if(t){t.setAttribute('aria-expanded','false');t.focus()}});
-    var drawers=document.querySelectorAll('.drawer.drawer-open');
-    if(drawers.length){drawers.forEach(function(d){d.classList.remove('drawer-open')});document.querySelectorAll('.scrim-bg').forEach(function(s){s.style.display='none'})}
-  }
-},false);
-</script>
+<script src="futurism.js"></script>
 <script src="main.js"></script>
+<script src="wire.js"></script>
 </body>
 </html>
