@@ -737,6 +737,12 @@ impl App {
     }
 
     fn adjust_sensor(&mut self, dir: i32) {
+        // Before the first Settings the editor holds defaults, not device state:
+        // editing them sets sensor_dirty, which blocks the reseed and leaves a
+        // diff the user never made.
+        if self.settings.is_none() {
+            return;
+        }
         let e = &mut self.sensor_edit;
         match SensorRow::ALL[self.sensor_cursor] {
             SensorRow::Lod => {
