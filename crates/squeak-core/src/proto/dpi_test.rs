@@ -62,3 +62,14 @@ fn live_write_roundtrip() {
     assert_eq!(polling::set_rate(&mut dev, orig_hz).unwrap(), orig_hz);
     eprintln!("polling write+restore OK: {orig_hz} → {test_hz} → {orig_hz}");
 }
+
+#[test]
+fn set_active_errors_on_short_confirm_read() {
+    use crate::proto::testhid::ShortAfter;
+    // The first read (get_dpi) is well-formed and guarded; the confirm read is
+    // short. Indexing r[ACTIVE_OFF] there used to panic the worker thread.
+    for short_len in 0..=ACTIVE_OFF {
+        let mut dev = ShortAfter { full_reads: 1, short_len, seen: 0 };
+        assert!(set_active(&mut dev, 0).is_err(), "short_len {short_len}");
+    }
+}

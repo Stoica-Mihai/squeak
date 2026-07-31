@@ -54,3 +54,24 @@ fn live_button_roundtrip() {
         orig.label, restored.label
     );
 }
+
+#[test]
+fn check_id_bounds() {
+    assert!(check_id(0).is_ok());
+    assert!(check_id(COUNT as u8 - 1).is_ok());
+    assert!(check_id(COUNT as u8).is_err());
+    assert!(check_id(u8::MAX).is_err());
+}
+
+#[test]
+fn write_paths_reject_out_of_range_id() {
+    use crate::proto::testhid::NoTraffic;
+    // NoTraffic panics on any transfer, so returning Err proves the id was
+    // rejected before a frame was built.
+    let bad = COUNT as u8 + 184;
+    assert!(set_button(&mut NoTraffic, bad, TYPE_MOUSE, 0x010000).is_err());
+    assert!(set_mouse(&mut NoTraffic, bad, "left").is_err());
+    assert!(set_media(&mut NoTraffic, bad, "Mute").is_err());
+    assert!(disable(&mut NoTraffic, bad).is_err());
+    assert!(restore_default(&mut NoTraffic, bad).is_err());
+}

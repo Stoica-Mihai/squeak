@@ -60,3 +60,28 @@ fn live_macro_roundtrip() {
     assert_eq!(restored.data, orig.data);
     eprintln!("macro upload+restore OK on button {id}");
 }
+
+#[test]
+fn frame_length_holds_at_the_event_limit() {
+    // 6 + 4*62 = 254, the largest value the len byte can carry.
+    let ev = click_events(&[1; MAX_EVENTS / 2]);
+    assert_eq!(ev.len() / 4, MAX_EVENTS);
+    let f = build_frame(0, &ev, 1, LOOP_STOP_ON_RELEASE);
+    assert_eq!(f[3], 254, "len byte must not wrap");
+    assert_eq!(f[10], MAX_EVENTS as u8);
+}
+
+#[test]
+fn set_macro_rejects_past_the_event_limit() {
+    use crate::proto::testhid::NoTraffic;
+    // One event past the limit; NoTraffic panics if anything reaches the wire.
+    let ev = click_events(&[1; MAX_EVENTS / 2 + 1]);
+    assert!(ev.len() / 4 > MAX_EVENTS);
+    assert!(set_macro(&mut NoTraffic, 0, &ev).is_err());
+}
+
+#[test]
+fn set_macro_rejects_out_of_range_button_id() {
+    use crate::proto::testhid::NoTraffic;
+    assert!(set_macro(&mut NoTraffic, 200, &click_events(&[1])).is_err());
+}

@@ -13,6 +13,9 @@ pub mod system;
 
 use crate::hid::enumerate::USAGE_PAGE_CONFIG;
 
+#[cfg(test)]
+pub(crate) mod testhid;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Variant {
     EightKNordic,
