@@ -4,7 +4,7 @@ pub mod device;
 pub mod enumerate;
 
 pub use device::Device;
-pub use enumerate::{DeviceInfo, find_all_config, find_config};
+pub use enumerate::{DeviceInfo, find_all_config, find_config, find_non_config};
 
 /// Keychron command transport: long (GET) and short (SET) channels. Abstracted
 /// so the protocol layer can run against a fake device in tests.

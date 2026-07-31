@@ -5,7 +5,7 @@
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::{self, JoinHandle};
 
-use crate::hid::{Device, DeviceInfo, Hid, HidError, find_all_config};
+use crate::hid::{Device, DeviceInfo, Hid, HidError, find_all_config, find_non_config};
 use crate::proto::block::{self, Settings};
 use crate::proto::buttons::{self, ButtonInfo};
 use crate::proto::sensor::SensorFields;
@@ -277,12 +277,7 @@ fn ensure_connected(tx: &Sender<Update>) -> Result<(Device, u16, u16), bool> {
             } else {
                 dedupe_words(&di.name)
             };
-            // The Ultra-Link dongle is its own product (0xD028 = wireless);
-            // the M6 enumerating directly (e.g. 0xD049) is the cable.
-            let transport = match pid {
-                0xD028 => "2.4 GHz",
-                _ => "wired",
-            };
+            let transport = di.transport();
             let firmware = info::read_version(&mut d).unwrap_or_else(|_| "?".into());
             if send(tx, Update::Connected { name, variant, firmware, transport }) {
                 return Err(true);
@@ -304,9 +299,25 @@ fn dedupe_words(s: &str) -> String {
     out.join(" ")
 }
 
+/// The mouse is present on a transport that carries no config collection, so no
+/// amount of probing will reach it. Names that transport for the error message.
+fn unconfigurable_transport() -> Option<&'static str> {
+    find_non_config()
+        .iter()
+        .map(DeviceInfo::transport)
+        .find(|t| *t == "Bluetooth")
+}
+
 fn connect() -> Result<(DeviceInfo, Device), String> {
     let candidates = find_all_config();
     if candidates.is_empty() {
+        if let Some(t) = unconfigurable_transport() {
+            return Err(format!(
+                "the mouse is connected over {t}, which carries no config \
+                 collection — switch it to the 2.4 GHz dongle or plug in the \
+                 cable to change settings."
+            ));
+        }
         return Err("Keychron config device not found (VID 3434, usage 0xFFC1). \
                     Plug in the dongle or the cable."
             .to_string());
@@ -324,6 +335,16 @@ fn connect() -> Result<(DeviceInfo, Device), String> {
             },
             Err(e) => last = format!("cannot open {} ({e})", info.node),
         }
+    }
+    // A plugged-in but idle dongle looks identical to a permissions problem from
+    // the error alone; if the mouse is on Bluetooth, that is the actual reason.
+    if let Some(t) = unconfigurable_transport() {
+        return Err(format!(
+            "no responding Keychron config device — {last}.\n\
+             The mouse is connected over {t}, which carries no config collection: \
+             the dongle is plugged in but has nothing paired to it.\n\
+             Switch the mouse to the 2.4 GHz dongle or plug in the cable."
+        ));
     }
     Err(format!(
         "no responding Keychron config device — {last}.\n\

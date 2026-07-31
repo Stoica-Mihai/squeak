@@ -166,3 +166,27 @@ fn write_ok_but_readback_failure_errors() {
     assert!(matches!(u[0], Update::Written { ok: true, .. }));
     assert!(matches!(u[1], Update::Error(_)));
 }
+
+/// Live: print what the worker reports for the currently attached hardware —
+/// the transport when it connects, or the failure text when it cannot (opt-in):
+///   cargo test live_connect_outcome -- --ignored --nocapture
+#[test]
+#[ignore = "probes the connected device"]
+fn live_connect_outcome() {
+    let w = Worker::spawn();
+    w.cmd_tx.send(Cmd::ReadAll).unwrap();
+    while let Ok(u) = w.update_rx.recv_timeout(std::time::Duration::from_secs(20)) {
+        match u {
+            Update::Connected { name, transport, .. } => {
+                println!("connected: {name} via {transport}");
+                return;
+            }
+            Update::Error(e) => {
+                println!("error:\n{e}");
+                return;
+            }
+            _ => {}
+        }
+    }
+    panic!("worker reported neither Connected nor Error");
+}
