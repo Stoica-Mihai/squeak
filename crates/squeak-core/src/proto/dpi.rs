@@ -91,8 +91,7 @@ pub fn set_active(dev: &mut dyn Hid, index: usize) -> Result<u8, HidError> {
     if !ok {
         return Err(HidError::BadReply(format!("DPI active set rejected: {resp:02x?}")));
     }
-    let r = dev.get(CMD_GET_DPI, &[])?;
-    let active = r[ACTIVE_OFF];
+    let (active, _) = get_dpi(dev)?;
     if active as usize != index {
         return Err(HidError::BadReply(format!(
             "DPI active unconfirmed: wanted {index}, read {active}"
