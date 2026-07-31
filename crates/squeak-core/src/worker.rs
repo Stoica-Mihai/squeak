@@ -111,13 +111,19 @@ fn run(cmd_rx: Receiver<Cmd>, update_tx: Sender<Update>) {
                 let mut updates = handle(other.clone(), dev.as_mut().unwrap());
                 // Stale fd / transport hiccup (e.g. node re-enumerated): drop,
                 // reconnect, and retry once before surfacing any error — so the
-                // user doesn't have to refresh twice.
+                // user doesn't have to refresh twice. Only replay onto the same
+                // unit: ensure_connected picks the first responder, which with
+                // dongle + cable both present can be the other device, and a
+                // destructive command (FactoryReset) must not land on it.
                 if updates.iter().any(|u| matches!(u, Update::Error(_))) {
+                    let before = ids;
                     dev = None;
                     if let Ok((d, vid, pid)) = ensure_connected(&update_tx) {
                         dev = Some(d);
                         ids = Some((vid, pid));
-                        updates = handle(other, dev.as_mut().unwrap());
+                        if before.is_none_or(|prev| prev == (vid, pid)) {
+                            updates = handle(other, dev.as_mut().unwrap());
+                        }
                     }
                 }
                 let mut closed = false;
