@@ -3,6 +3,7 @@
 //! removed — so the UI reacts to plug/unplug without ever polling the device.
 //! recv() blocks until the kernel sends an event; zero HID traffic until then.
 
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::sync::mpsc::Sender;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -25,7 +26,7 @@ pub fn spawn(cmd_tx: Sender<Cmd>) {
 }
 
 /// Open + bind a `NETLINK_KOBJECT_UEVENT` socket on the kernel multicast group.
-fn open_uevent_socket() -> std::io::Result<libc::c_int> {
+fn open_uevent_socket() -> std::io::Result<OwnedFd> {
     // SAFETY: libc socket/bind, return values checked.
     let fd = unsafe {
         libc::socket(
@@ -37,31 +38,43 @@ fn open_uevent_socket() -> std::io::Result<libc::c_int> {
     if fd < 0 {
         return Err(std::io::Error::last_os_error());
     }
+    // SAFETY: fresh fd from socket(), owned by nobody else; OwnedFd closes it on
+    // every exit path from here, including the bind error below.
+    let sock = unsafe { OwnedFd::from_raw_fd(fd) };
     let mut addr: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
     addr.nl_family = libc::AF_NETLINK as u16;
     addr.nl_groups = 1; // kernel uevent multicast group
     let rc = unsafe {
         libc::bind(
-            fd,
+            sock.as_raw_fd(),
             &addr as *const libc::sockaddr_nl as *const libc::sockaddr,
             std::mem::size_of::<libc::sockaddr_nl>() as libc::socklen_t,
         )
     };
     if rc < 0 {
-        let e = std::io::Error::last_os_error();
-        unsafe { libc::close(fd) };
-        return Err(e);
+        return Err(std::io::Error::last_os_error());
     }
-    Ok(fd)
+    Ok(sock)
 }
 
 fn run(cmd_tx: &Sender<Cmd>) -> std::io::Result<()> {
-    let fd = open_uevent_socket()?;
+    let sock = open_uevent_socket()?;
     let mut buf = [0u8; 8192];
     let mut last: Option<Instant> = None;
     loop {
-        let n = unsafe { libc::recv(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0) };
-        if n <= 0 {
+        let n = unsafe {
+            libc::recv(sock.as_raw_fd(), buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0)
+        };
+        // Retrying an unrecoverable error (EBADF, ENOTCONN) would spin this
+        // thread at 100% CPU forever, so only signals/would-block are retried.
+        if n < 0 {
+            let err = std::io::Error::last_os_error();
+            if matches!(err.raw_os_error(), Some(libc::EINTR) | Some(libc::EAGAIN)) {
+                continue;
+            }
+            return Err(err);
+        }
+        if n == 0 {
             continue;
         }
         let msg = &buf[..n as usize];
@@ -87,7 +100,6 @@ mod tests {
     #[test]
     #[ignore = "opens a NETLINK_KOBJECT_UEVENT socket"]
     fn uevent_socket_binds() {
-        let fd = open_uevent_socket().expect("bind NETLINK_KOBJECT_UEVENT group");
-        unsafe { libc::close(fd) };
+        let _sock = open_uevent_socket().expect("bind NETLINK_KOBJECT_UEVENT group");
     }
 }
