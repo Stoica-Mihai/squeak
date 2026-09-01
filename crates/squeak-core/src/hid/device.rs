@@ -33,6 +33,18 @@ pub struct Device {
     file: File,
 }
 
+/// Milliseconds for one `poll`, capped so the loop rechecks the deadline;
+/// `None` once the budget is spent. Takes `elapsed` rather than reading the
+/// clock so the bound and the slice come from one sample — sampling twice let
+/// `TIMEOUT - elapsed` underflow and panic right on the deadline.
+fn poll_slice_ms(elapsed: Duration) -> Option<i32> {
+    let left = TIMEOUT.checked_sub(elapsed)?;
+    if left.is_zero() {
+        return None;
+    }
+    Some(left.as_millis().clamp(1, 200) as i32)
+}
+
 impl Device {
     pub fn open(path: &str) -> Result<Self, HidError> {
         let file = OpenOptions::new()
@@ -68,8 +80,7 @@ impl Device {
     fn read_until(&mut self, want_id: u8, want_cmd: Option<u8>, payload_len: usize) -> Result<Vec<u8>, HidError> {
         let mut rbuf = vec![0u8; 1 + payload_len];
         let start = Instant::now();
-        while start.elapsed() < TIMEOUT {
-            let remaining = (TIMEOUT - start.elapsed()).as_millis().min(200) as i32;
+        while let Some(remaining) = poll_slice_ms(start.elapsed()) {
             let mut fds = [PollFd::new(&self.file, PollFlags::IN)];
             let ready = poll(&mut fds, remaining).map_err(HidError::Poll)?;
             if ready == 0 {
@@ -122,3 +133,7 @@ impl Hid for Device {
         self.read_until(SHORT_IN, None, SHORT_LEN)
     }
 }
+
+#[cfg(test)]
+#[path = "device_test.rs"]
+mod tests;
