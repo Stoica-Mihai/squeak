@@ -171,7 +171,24 @@ fn emit_update(app: &tauri::AppHandle, u: Update) {
     }
 }
 
+/// Route WebKit's frames through shared memory on Wayland, unless already set.
+///
+/// The DMA-BUF renderer gives Mesa an EGL surface on the GTK toplevel, and Mesa
+/// opts that `wl_surface` into explicit sync. GTK 3 cannot set acquire points,
+/// so its next cairo commit is a `no_acquire_point` error and the compositor
+/// disconnects us before the window draws. No EGL surface, no opt-in.
+fn force_shm_frames_on_wayland() {
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        return;
+    }
+    if std::env::var_os("WEBKIT_DMABUF_RENDERER_FORCE_SHM").is_none() {
+        // SAFETY: single-threaded — nothing else has started yet.
+        unsafe { std::env::set_var("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1") };
+    }
+}
+
 fn main() {
+    force_shm_frames_on_wayland();
     tauri::Builder::default()
         .setup(|app| {
             let worker = Worker::spawn();
