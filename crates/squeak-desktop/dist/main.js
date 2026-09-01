@@ -72,6 +72,7 @@ async function wireEvents() {
     listen("connected", (e) => {
       $("devName").textContent = e.payload.name;
       $("devMeta").textContent = `· ${e.payload.transport} · fw ${e.payload.firmware}`;
+      hideNotice();
     }),
     listen("settings", (e) => {
       state.settings = e.payload;
@@ -92,6 +93,7 @@ async function wireEvents() {
       $("devMeta").textContent = "";
       $("battCells").innerHTML = "";
       $("battPct").textContent = "";
+      showNotice("Device unavailable", e.payload.message);
       toast(friendlyError(e.payload.message), "err");
     }),
   ]);
@@ -501,12 +503,39 @@ function onKey(e) {
   e.preventDefault();
 }
 
+// ---- device notice ----------------------------------------------------------
+
+// Why the device is unusable, kept on screen. A toast alone fades and leaves
+// the header saying only "Disconnected", with no reason anywhere.
+function showNotice(title, raw) {
+  const el = $("devNotice");
+  el.replaceChildren();
+  const head = document.createElement("div");
+  head.className = "nt";
+  head.textContent = title;
+  el.append(head);
+  for (const line of String(raw).split("\n").map((l) => l.trim()).filter(Boolean)) {
+    const p = document.createElement("p");
+    p.textContent = line; // device strings are never markup
+    el.append(p);
+  }
+  el.hidden = false;
+}
+
+function hideNotice() {
+  $("devNotice").hidden = true;
+}
+
 // ---- toast ------------------------------------------------------------------
 
 // Map a raw backend error to a plain, actionable reason.
 function friendlyError(raw) {
   const m = String(raw).toLowerCase();
   if (m.includes("no such device") || m.includes("os error 19")) return "Mouse disconnected.";
+  // Must precede the generic branches: the Bluetooth message also says "no
+  // responding", and that branch's "unplug the unused one" is wrong advice here.
+  if (m.includes("bluetooth"))
+    return "Mouse is on Bluetooth, which carries no config collection — switch it to the 2.4 GHz dongle or the cable.";
   if (m.includes("not found") || m.includes("no responding"))
     return "No mouse found — connect the cable or dongle (and unplug the unused one).";
   if (m.includes("permission") || m.includes("eacces") || m.includes("os error 13"))
